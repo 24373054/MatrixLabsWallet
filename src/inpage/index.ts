@@ -86,8 +86,62 @@ class MatrixLabsProvider extends EventEmitter {
       case 'wallet_addEthereumChain':
         return this._handleAddChain(params);
 
+      // RPC passthrough methods - return mock data for now
+      case 'eth_blockNumber':
+        return '0x' + Math.floor(Date.now() / 1000).toString(16);
+      
+      case 'eth_getBlockByNumber':
+        const blockNum = '0x' + Math.floor(Date.now() / 1000).toString(16);
+        return {
+          number: blockNum,
+          timestamp: blockNum,
+          hash: '0x' + '1'.repeat(64),
+          parentHash: '0x' + '0'.repeat(64),
+          nonce: '0x0000000000000000',
+          sha3Uncles: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347',
+          logsBloom: '0x' + '0'.repeat(512),
+          transactionsRoot: '0x' + '0'.repeat(64),
+          stateRoot: '0x' + '0'.repeat(64),
+          receiptsRoot: '0x' + '0'.repeat(64),
+          miner: '0x0000000000000000000000000000000000000000',
+          difficulty: '0x0',
+          totalDifficulty: '0x0',
+          extraData: '0x',
+          size: '0x0',
+          gasLimit: '0x1c9c380',
+          gasUsed: '0x0',
+          transactions: [],
+          uncles: [],
+          baseFeePerGas: '0x3b9aca00',
+        };
+      
+      case 'eth_gasPrice':
+        return '0x3b9aca00'; // 1 Gwei
+      
+      case 'eth_maxPriorityFeePerGas':
+        return '0x59682f00'; // 1.5 Gwei
+      
+      case 'eth_estimateGas':
+        return '0x5208'; // 21000
+      
+      case 'eth_getBalance':
+        return '0x0'; // 0 ETH for now
+      
+      case 'eth_getTransactionCount':
+        return '0x0';
+      
+      case 'eth_call':
+        return '0x'; // Empty response
+      
+      case 'net_version':
+        return '1'; // Mainnet
+      
+      case 'wallet_requestPermissions':
+        return [{ parentCapability: 'eth_accounts' }];
+
       default:
-        throw new Error(`MatrixLabs: Method ${method} not supported`);
+        console.warn(`MatrixLabs: Method ${method} not implemented, returning null`);
+        return null;
     }
   }
 
@@ -197,8 +251,26 @@ const provider = new MatrixLabsProvider();
 (window as any).ethereum = provider;
 (window as any).matrixlabs = provider;
 
-// Announce provider
+// Also set as web3.currentProvider for legacy dApps
+if (typeof (window as any).web3 === 'undefined') {
+  (window as any).web3 = {
+    currentProvider: provider,
+  };
+}
+
+// Announce provider - multiple events for compatibility
 window.dispatchEvent(new Event('ethereum#initialized'));
+window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+  detail: {
+    info: {
+      uuid: 'matrixlabs-wallet-uuid',
+      name: 'MatrixLabs Wallet',
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="%234F46E5"/></svg>',
+      rdns: 'com.matrixlabs.wallet'
+    },
+    provider: provider
+  }
+}));
 
 console.log('MatrixLabs Wallet provider injected');
 
