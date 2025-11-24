@@ -10,11 +10,12 @@ import { Settings } from './pages/Settings';
 import { NetworkSettings } from './pages/NetworkSettings';
 import { ConnectRequest } from './pages/ConnectRequest';
 import { SignMessage } from './pages/SignMessage';
+import SendTransaction from './pages/SendTransaction';
 import { StorageService, DEFAULT_NETWORKS } from '../lib/storage';
 import { WalletService } from '../lib/wallet';
 import { useWalletStore } from '../store/wallet';
 
-type AppState = 'loading' | 'welcome' | 'create' | 'import' | 'unlock' | 'home' | 'send' | 'receive' | 'settings' | 'network-settings' | 'connect-request' | 'sign-message';
+type AppState = 'loading' | 'welcome' | 'create' | 'import' | 'unlock' | 'home' | 'send' | 'receive' | 'settings' | 'network-settings' | 'connect-request' | 'sign-message' | 'send-transaction';
 
 function App() {
   const [appState, setAppState] = useState<AppState>('loading');
@@ -126,7 +127,15 @@ function App() {
       setUnlocked(true);
       console.log('[App] State updated, checking for pending requests...');
       
-      // Check if there's a pending signature request first
+      // Check if there's a pending transaction request first
+      const transactionResult = await chrome.storage.local.get(['pendingTransaction']);
+      if (transactionResult.pendingTransaction) {
+        console.log('[App] Navigating to send-transaction page');
+        setAppState('send-transaction');
+        return;
+      }
+      
+      // Check if there's a pending signature request
       const signatureResult = await chrome.storage.local.get(['pendingSignature']);
       if (signatureResult.pendingSignature) {
         console.log('[App] Navigating to sign-message page');
@@ -181,13 +190,23 @@ function App() {
     }
   };
 
-  const handleSignatureApprove = async (signature: string) => {
+  const handleSignatureApprove = async () => {
     console.log('[App] Signature approved, closing window');
     window.close();
   };
 
   const handleSignatureReject = async () => {
     console.log('[App] Signature rejected, closing window');
+    window.close();
+  };
+
+  const handleTransactionApprove = async () => {
+    console.log('[App] Transaction approved, closing window');
+    window.close();
+  };
+
+  const handleTransactionReject = async () => {
+    console.log('[App] Transaction rejected, closing window');
     window.close();
   };
 
@@ -266,6 +285,15 @@ function App() {
       <SignMessage
         onApprove={handleSignatureApprove}
         onReject={handleSignatureReject}
+      />
+    );
+  }
+
+  if (appState === 'send-transaction') {
+    return (
+      <SendTransaction
+        onApprove={handleTransactionApprove}
+        onReject={handleTransactionReject}
       />
     );
   }

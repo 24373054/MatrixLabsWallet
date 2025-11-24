@@ -1,6 +1,7 @@
 // Background service worker for MatrixLabs Wallet
 import { ethers } from 'ethers';
 import { CryptoService } from '../lib/crypto';
+import { RPCService } from '../lib/rpc';
 
 // Ensure chrome API is available
 if (typeof chrome === 'undefined') {
@@ -34,7 +35,16 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       return true;
 
     case 'SIGN_TRANSACTION':
-      handleSignTransaction(request.data, sendResponse);
+    case 'SEND_TRANSACTION':
+      handleSendTransaction(request.data, sendResponse);
+      return true;
+    
+    case 'TRANSACTION_APPROVED':
+      handleTransactionApproved(sendResponse);
+      return true;
+    
+    case 'TRANSACTION_REJECTED':
+      handleTransactionRejected(sendResponse);
       return true;
 
     case 'SIGN_MESSAGE':
@@ -57,6 +67,10 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       handleSignatureRejected(sendResponse);
       return true;
 
+    case 'RPC_CALL':
+      handleRPCCall(request.data, sendResponse);
+      return true;
+
     default:
       sendResponse({ error: 'Unknown request type' });
   }
@@ -69,6 +83,9 @@ let pendingConnectionResolve: ((value: any) => void) | null = null;
 
 // Store pending signature requests
 let pendingSignatureResolve: ((value: any) => void) | null = null;
+
+// Store pending transaction requests
+let pendingTransactionResolve: ((value: any) => void) | null = null;
 
 async function handleGetAccounts(sendResponse: (response: any) => void) {
   try {
@@ -195,37 +212,163 @@ async function handleConnectionRejected(sendResponse: (response: any) => void) {
   sendResponse({ success: true });
 }
 
-async function handleSignTransaction(data: any, sendResponse: (response: any) => void) {
-  console.log('[Background] handleSignTransaction called');
+async function handleSendTransaction(data: any, sendResponse: (response: any) => void) {
+  console.log('[Background] handleSendTransaction called');
   console.log('[Background] Transaction data:', data);
   
-  // For now, return an error since transaction UI is not fully implemented
-  sendResponse({ 
-    success: false, 
-    error: 'User rejected the request'
-  });
-  
-  /* TODO: Implement transaction confirmation UI
   try {
-    // Check if chrome.windows API is available
-    if (!chrome.windows) {
-      throw new Error('Windows API not available');
-    }
+    const sessionResult = await chrome.storage.session?.get(['unlocked', 'currentAccount']) || {};
     
-    // Open popup for user confirmation
-    await chrome.windows.create({
-      url: chrome.runtime.getURL('index.html#/confirm-transaction'),
-      type: 'popup',
-      width: 360,
-      height: 600,
+    if (!sessionResult.unlocked || !sessionResult.currentAccount) {
+      console.log('[Background] Wallet not unlocked for transaction');
+      sendResponse({ success: false, error: 'Wallet is locked. Please unlock your wallet.' });
+      return;
+    }
+
+    // Extract transaction params
+    const txParams = Array.isArray(data) ? data[0] : data;
+    
+    // Save pending transaction
+    await chrome.storage.local.set({
+      pendingTransaction: txParams
     });
 
-    sendResponse({ success: true, message: 'Transaction confirmation requested' });
-  } catch (error) {
-    console.error('Failed to create window:', error);
-    sendResponse({ success: false, error: 'Failed to request transaction confirmation' });
+    // Open popup for user confirmation
+    try {
+      await chrome.windows.create({
+        url: chrome.runtime.getURL('index.html'),
+        type: 'popup',
+        width: 360,
+        height: 600,
+      });
+      console.log('[Background] Transaction popup window opened');
+    } catch (error) {
+      console.error('[Background] Failed to open transaction popup:', error);
+      sendResponse({ success: false, error: 'Failed to open wallet' });
+      return;
+    }
+
+    console.log('[Background] Waiting for user transaction approval...');
+
+    // Wait for user approval/rejection
+    const result: any = await new Promise((resolve) => {
+      pendingTransactionResolve = resolve;
+      setTimeout(() => {
+        console.log('[Background] Transaction request timed out');
+        resolve({ approved: false });
+      }, 120000); // 2 minutes timeout
+    });
+
+    console.log('[Background] Transaction decision:', result);
+
+    if (!result.approved) {
+      sendResponse({ success: false, error: 'User rejected the request' });
+      return;
+    }
+
+    sendResponse({ success: true, txHash: result.txHash });
+  } catch (error: any) {
+    console.error('[Background] Failed to handle transaction:', error);
+    sendResponse({ success: false, error: 'Failed to send transaction' });
   }
-  */
+}
+
+async function handleTransactionApproved(sendResponse: (response: any) => void) {
+  console.log('[Background] Transaction approved');
+  
+  try {
+    const result = await chrome.storage.local.get(['pendingTransaction', 'encryptedVault']);
+    const transaction = result.pendingTransaction;
+    const encryptedVault = result.encryptedVault;
+
+    if (!transaction) {
+      console.error('[Background] No pending transaction found');
+      sendResponse({ success: false, error: 'No pending transaction' });
+      return;
+    }
+
+    if (!encryptedVault) {
+      console.error('[Background] No encrypted vault found');
+      sendResponse({ success: false, error: 'Wallet not initialized' });
+      return;
+    }
+
+    const sessionResult = await chrome.storage.session?.get(['currentAccount', 'password']) || {};
+    const currentAccount = sessionResult.currentAccount;
+    const password = sessionResult.password;
+
+    if (!currentAccount) {
+      console.error('[Background] No current account found in session');
+      sendResponse({ success: false, error: 'Account not found' });
+      return;
+    }
+
+    if (!password) {
+      console.error('[Background] No password found in session');
+      sendResponse({ success: false, error: 'Password not found' });
+      return;
+    }
+
+    console.log('[Background] Decrypting vault to get private key...');
+
+    // Decrypt vault to get mnemonic
+    const vaultJson = await CryptoService.decrypt(encryptedVault, password);
+    const vaultData = JSON.parse(vaultJson);
+
+    console.log('[Background] Vault decrypted, deriving wallet...');
+
+    // Derive wallet from mnemonic
+    const wallet = await CryptoService.deriveWallet(vaultData.mnemonic, currentAccount.index || 0);
+
+    console.log('[Background] Wallet derived, connecting to provider...');
+
+    // Connect wallet to provider
+    const provider = await RPCService.getProvider(transaction.chainId);
+    const connectedWallet = wallet.connect(provider);
+
+    console.log('[Background] Wallet connected, signing and sending transaction...');
+
+    // Sign and send transaction
+    const tx = await connectedWallet.sendTransaction(transaction);
+    console.log('[Background] Transaction sent:', tx.hash);
+
+    // Wait for transaction to be mined
+    const receipt = await tx.wait();
+    console.log('[Background] Transaction mined:', receipt);
+
+    // Clear pending transaction
+    await chrome.storage.local.remove(['pendingTransaction']);
+
+    if (pendingTransactionResolve) {
+      pendingTransactionResolve({ approved: true, txHash: tx.hash });
+      pendingTransactionResolve = null;
+    }
+
+    sendResponse({ success: true, txHash: tx.hash });
+  } catch (error: any) {
+    console.error('[Background] Failed to send transaction:', error);
+    
+    if (pendingTransactionResolve) {
+      pendingTransactionResolve({ approved: false });
+      pendingTransactionResolve = null;
+    }
+    
+    sendResponse({ success: false, error: error.message || 'Failed to send transaction' });
+  }
+}
+
+async function handleTransactionRejected(sendResponse: (response: any) => void) {
+  console.log('[Background] Transaction rejected');
+  
+  // Clear pending transaction
+  await chrome.storage.local.remove(['pendingTransaction']);
+  
+  if (pendingTransactionResolve) {
+    pendingTransactionResolve({ approved: false });
+    pendingTransactionResolve = null;
+  }
+  
+  sendResponse({ success: true });
 }
 
 async function handleSignMessage(data: any, sendResponse: (response: any) => void) {
@@ -402,6 +545,79 @@ async function handleSignatureRejected(sendResponse: (response: any) => void) {
   }
   
   sendResponse({ success: true });
+}
+
+async function handleRPCCall(data: any, sendResponse: (response: any) => void) {
+  const { method, params } = data;
+  console.log('[Background] RPC call:', method, params);
+  
+  try {
+    let result;
+    
+    switch (method) {
+      case 'eth_blockNumber':
+        const blockNumber = await RPCService.getBlockNumber();
+        result = '0x' + blockNumber.toString(16);
+        break;
+      
+      case 'eth_getBlockByNumber':
+        const block = await RPCService.getBlock(params[0] || 'latest');
+        result = block;
+        break;
+      
+      case 'eth_gasPrice':
+        const gasPrice = await RPCService.getGasPrice();
+        result = '0x' + gasPrice.toString(16);
+        break;
+      
+      case 'eth_maxPriorityFeePerGas':
+        const feeData = await RPCService.getFeeData();
+        result = feeData.maxPriorityFeePerGas ? '0x' + feeData.maxPriorityFeePerGas.toString(16) : '0x59682f00';
+        break;
+      
+      case 'eth_estimateGas':
+        const estimatedGas = await RPCService.estimateGas(params[0]);
+        result = '0x' + estimatedGas.toString(16);
+        break;
+      
+      case 'eth_getBalance':
+        const balance = await RPCService.getBalance(params[0]);
+        result = '0x' + BigInt(Math.floor(parseFloat(balance) * 1e18)).toString(16);
+        break;
+      
+      case 'eth_getTransactionCount':
+        const nonce = await RPCService.getTransactionCount(params[0]);
+        result = '0x' + nonce.toString(16);
+        break;
+      
+      case 'eth_call':
+        result = await RPCService.call(params[0]);
+        break;
+      
+      case 'eth_getTransactionReceipt':
+        result = await RPCService.getTransactionReceipt(params[0]);
+        break;
+      
+      case 'eth_getCode':
+        const provider = await RPCService.getProvider();
+        result = await provider.getCode(params[0]);
+        break;
+      
+      case 'eth_getLogs':
+        const provider2 = await RPCService.getProvider();
+        result = await provider2.getLogs(params[0]);
+        break;
+      
+      default:
+        throw new Error(`RPC method ${method} not supported`);
+    }
+    
+    console.log('[Background] RPC result:', result);
+    sendResponse({ success: true, result });
+  } catch (error: any) {
+    console.error('[Background] RPC call failed:', error);
+    sendResponse({ success: false, error: error.message || 'RPC call failed' });
+  }
 }
 
 // Keep service worker alive

@@ -120,24 +120,24 @@ export const DEFAULT_NETWORKS: Network[] = [
   {
     id: 'ethereum',
     name: 'Ethereum Mainnet',
-    rpcUrl: 'https://eth.llamarpc.com',
     chainId: 1,
+    rpcUrl: 'https://eth.llamarpc.com', // Public RPC
     symbol: 'ETH',
     explorerUrl: 'https://etherscan.io',
   },
   {
     id: 'sepolia',
     name: 'Sepolia Testnet',
-    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     chainId: 11155111,
+    rpcUrl: 'https://rpc.sepolia.org', // Public RPC
     symbol: 'ETH',
     explorerUrl: 'https://sepolia.etherscan.io',
   },
   {
     id: 'polygon',
-    name: 'Polygon',
-    rpcUrl: 'https://polygon-rpc.com',
+    name: 'Polygon Mainnet',
     chainId: 137,
+    rpcUrl: 'https://polygon-rpc.com', // Public RPC
     symbol: 'MATIC',
     explorerUrl: 'https://polygonscan.com',
   },
