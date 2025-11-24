@@ -54,6 +54,12 @@ class MatrixLabsProvider {
       case 'eth_signTypedData_v4':
         return this._handleSignTypedData(params);
 
+      case 'wallet_switchEthereumChain':
+        return this._handleSwitchChain(params);
+
+      case 'wallet_addEthereumChain':
+        return this._handleAddChain(params);
+
       default:
         throw new Error(`MatrixLabs: Method ${method} not supported`);
     }
@@ -97,6 +103,32 @@ class MatrixLabsProvider {
       return response.signature;
     }
     throw new Error(response.error || 'Signature failed');
+  }
+
+  private async _handleSwitchChain(params: any): Promise<null> {
+    const chainId = Array.isArray(params) ? params[0]?.chainId : params?.chainId;
+    console.log('[Inpage] Switch chain request:', chainId);
+    
+    // For now, just update the chainId and return success
+    // In a real implementation, this would communicate with the wallet
+    if (chainId) {
+      this._chainId = chainId;
+      this.emit('chainChanged', chainId);
+    }
+    return null;
+  }
+
+  private async _handleAddChain(params: any): Promise<null> {
+    const chainParams = Array.isArray(params) ? params[0] : params;
+    console.log('[Inpage] Add chain request:', chainParams);
+    
+    // For now, just accept the chain and update chainId
+    // In a real implementation, this would show a confirmation dialog
+    if (chainParams?.chainId) {
+      this._chainId = chainParams.chainId;
+      this.emit('chainChanged', chainParams.chainId);
+    }
+    return null;
   }
 
   private _sendMessage(type: string, data: any): Promise<any> {

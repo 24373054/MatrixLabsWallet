@@ -8,11 +8,13 @@ import { Send } from './pages/Send';
 import { Receive } from './pages/Receive';
 import { Settings } from './pages/Settings';
 import { NetworkSettings } from './pages/NetworkSettings';
+import { ConnectRequest } from './pages/ConnectRequest';
+import { SignMessage } from './pages/SignMessage';
 import { StorageService, DEFAULT_NETWORKS } from '../lib/storage';
 import { WalletService } from '../lib/wallet';
 import { useWalletStore } from '../store/wallet';
 
-type AppState = 'loading' | 'welcome' | 'create' | 'import' | 'unlock' | 'home' | 'send' | 'receive' | 'settings' | 'network-settings';
+type AppState = 'loading' | 'welcome' | 'create' | 'import' | 'unlock' | 'home' | 'send' | 'receive' | 'settings' | 'network-settings' | 'connect-request' | 'sign-message';
 
 function App() {
   const [appState, setAppState] = useState<AppState>('loading');
@@ -66,7 +68,7 @@ function App() {
     }
   };
 
-  const handleWalletCreated = () => {
+  const handleWalletCreated = async () => {
     const account = WalletService.getCurrentAccount();
     const accounts = WalletService.getAllAccounts();
     
@@ -74,11 +76,21 @@ function App() {
       setCurrentAccount(account);
       setAccounts(accounts);
       setUnlocked(true);
+      
+      // Save session state for dApp connections
+      if (chrome.storage.session) {
+        await chrome.storage.session.set({
+          unlocked: true,
+          currentAccount: account,
+        });
+        console.log('[App] Session state saved after wallet creation');
+      }
+      
       setAppState('home');
     }
   };
 
-  const handleWalletImported = () => {
+  const handleWalletImported = async () => {
     const account = WalletService.getCurrentAccount();
     const accounts = WalletService.getAllAccounts();
     
@@ -86,20 +98,97 @@ function App() {
       setCurrentAccount(account);
       setAccounts(accounts);
       setUnlocked(true);
+      
+      // Save session state for dApp connections
+      if (chrome.storage.session) {
+        await chrome.storage.session.set({
+          unlocked: true,
+          currentAccount: account,
+        });
+        console.log('[App] Session state saved after wallet import');
+      }
+      
       setAppState('home');
     }
   };
 
-  const handleUnlocked = () => {
+  const handleUnlocked = async () => {
+    console.log('[App] handleUnlocked called');
     const account = WalletService.getCurrentAccount();
     const accounts = WalletService.getAllAccounts();
+    
+    console.log('[App] Account:', account?.address);
+    console.log('[App] Accounts count:', accounts.length);
     
     if (account) {
       setCurrentAccount(account);
       setAccounts(accounts);
       setUnlocked(true);
-      setAppState('home');
+      console.log('[App] State updated, checking for pending requests...');
+      
+      // Check if there's a pending signature request first
+      const signatureResult = await chrome.storage.local.get(['pendingSignature']);
+      if (signatureResult.pendingSignature) {
+        console.log('[App] Navigating to sign-message page');
+        setAppState('sign-message');
+        return;
+      }
+      
+      // Check if there's a pending connection request
+      const connectionResult = await chrome.storage.local.get(['pendingConnection']);
+      console.log('[App] Pending connection:', connectionResult.pendingConnection);
+      
+      if (connectionResult.pendingConnection) {
+        console.log('[App] Navigating to connect-request page');
+        setAppState('connect-request');
+      } else {
+        console.log('[App] No pending requests, navigating to home');
+        setAppState('home');
+      }
+    } else {
+      console.error('[App] No account found after unlock');
     }
+  };
+
+  const handleConnectApprove = async () => {
+    console.log('[App] Connection approved by user');
+    try {
+      // Notify background script that connection was approved
+      const response = await chrome.runtime.sendMessage({
+        type: 'CONNECTION_APPROVED',
+        data: { approved: true }
+      });
+      console.log('[App] Background response:', response);
+      setAppState('home');
+    } catch (error) {
+      console.error('[App] Error approving connection:', error);
+    }
+  };
+
+  const handleConnectReject = async () => {
+    console.log('[App] Connection rejected by user');
+    try {
+      // Notify background script that connection was rejected
+      const response = await chrome.runtime.sendMessage({
+        type: 'CONNECTION_REJECTED',
+        data: { approved: false }
+      });
+      console.log('[App] Background response:', response);
+      window.close();
+    } catch (error) {
+      console.error('[App] Error rejecting connection:', error);
+      window.close();
+    }
+  };
+
+  const handleSignatureApprove = async (signature: string) => {
+    console.log('[App] Signature approved, closing window');
+    window.close();
+  };
+
+  const handleSignatureReject = async () => {
+    console.log('[App] Signature rejected, closing window');
+    window.close();
   };
 
   if (appState === 'loading') {
@@ -161,6 +250,24 @@ function App() {
 
   if (appState === 'network-settings') {
     return <NetworkSettings onBack={() => setAppState('settings')} />;
+  }
+
+  if (appState === 'connect-request') {
+    return (
+      <ConnectRequest
+        onApprove={handleConnectApprove}
+        onReject={handleConnectReject}
+      />
+    );
+  }
+
+  if (appState === 'sign-message') {
+    return (
+      <SignMessage
+        onApprove={handleSignatureApprove}
+        onReject={handleSignatureReject}
+      />
+    );
   }
 
   return <Home onNavigate={(page: 'send' | 'receive' | 'settings') => setAppState(page)} />;

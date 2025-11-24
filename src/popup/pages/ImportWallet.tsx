@@ -38,6 +38,20 @@ export const ImportWallet: React.FC<ImportWalletProps> = ({ onBack, onComplete }
     setError('');
     try {
       await WalletService.importWallet(trimmedMnemonic, password);
+      
+      // Save password to session for signing
+      if (chrome.storage.session) {
+        const currentAccount = WalletService.getCurrentAccount();
+        if (currentAccount) {
+          await chrome.storage.session.set({
+            unlocked: true,
+            currentAccount: currentAccount,
+            password: password,
+          });
+          console.log('[ImportWallet] Session state saved with password');
+        }
+      }
+      
       onComplete();
     } catch (err: any) {
       setError(err.message || '导入失败，请检查助记词是否正确');

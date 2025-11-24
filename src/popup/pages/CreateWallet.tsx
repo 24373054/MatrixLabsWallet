@@ -49,7 +49,19 @@ export const CreateWallet: React.FC<CreateWalletProps> = ({ onBack, onComplete }
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    // Save password to session for signing
+    if (chrome.storage.session) {
+      const currentAccount = WalletService.getCurrentAccount();
+      if (currentAccount) {
+        await chrome.storage.session.set({
+          unlocked: true,
+          currentAccount: currentAccount,
+          password: password,
+        });
+        console.log('[CreateWallet] Session state saved with password');
+      }
+    }
     onComplete();
   };
 

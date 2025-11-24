@@ -18,13 +18,35 @@ export const Unlock: React.FC<UnlockProps> = ({ onUnlock }) => {
     setLoading(true);
     setError('');
     try {
+      console.log('[Unlock] Attempting to unlock wallet...');
       const success = await WalletService.unlockWallet(password);
       if (success) {
+        console.log('[Unlock] Wallet unlocked successfully');
+        // Save session state for dApp connections
+        const currentAccount = WalletService.getCurrentAccount();
+        if (currentAccount) {
+          console.log('[Unlock] Current account:', currentAccount.address);
+          if (chrome.storage.session) {
+            await chrome.storage.session.set({
+              unlocked: true,
+              currentAccount: currentAccount,
+              password: password, // Save password for signing
+            });
+            console.log('[Unlock] Session state saved with password');
+          } else {
+            console.warn('[Unlock] chrome.storage.session not available');
+          }
+        } else {
+          console.error('[Unlock] No current account found');
+        }
+        console.log('[Unlock] Calling onUnlock callback');
         onUnlock();
       } else {
+        console.log('[Unlock] Unlock failed - wrong password');
         setError('密码错误，请重试');
       }
     } catch (err) {
+      console.error('[Unlock] Error:', err);
       setError('解锁失败，请重试');
     } finally {
       setLoading(false);

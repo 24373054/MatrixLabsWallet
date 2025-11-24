@@ -30,11 +30,20 @@ window.addEventListener('message', async (event) => {
   // Only accept messages with matrixlabs prefix
   if (!event.data.type || !event.data.type.startsWith('MATRIXLABS_')) return;
 
+  // Ignore response messages to prevent infinite loop
+  if (event.data.type.includes('_RESPONSE')) {
+    return;
+  }
+
+  console.log('[Content] Forwarding message to background:', event.data.type);
+
   try {
     const response = await chrome.runtime.sendMessage({
       type: event.data.type.replace('MATRIXLABS_', ''),
       data: event.data.data,
     });
+
+    console.log('[Content] Received response from background:', response);
 
     window.postMessage(
       {
@@ -45,6 +54,7 @@ window.addEventListener('message', async (event) => {
       '*'
     );
   } catch (error) {
+    console.error('[Content] Error communicating with background:', error);
     window.postMessage(
       {
         type: `${event.data.type}_RESPONSE`,
