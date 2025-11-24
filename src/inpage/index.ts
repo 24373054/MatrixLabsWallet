@@ -10,14 +10,40 @@ interface RequestArguments {
   params?: unknown[] | object;
 }
 
-class MatrixLabsProvider {
+// Simple EventEmitter implementation
+class EventEmitter {
+  protected _eventListeners: Map<string, Set<Function>> = new Map();
+
+  on(event: string, callback: Function): void {
+    if (!this._eventListeners.has(event)) {
+      this._eventListeners.set(event, new Set());
+    }
+    this._eventListeners.get(event)!.add(callback);
+  }
+
+  removeListener(event: string, callback: Function): void {
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      listeners.delete(callback);
+    }
+  }
+
+  emit(event: string, ...args: any[]): void {
+    const listeners = this._eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach((callback) => callback(...args));
+    }
+  }
+}
+
+class MatrixLabsProvider extends EventEmitter {
   public isMatrixLabs = true;
-  public isMetaMask = true; // For compatibility
-  private _chainId: string = '0x1';
+  public isMetaMask = true; // Pretend to be MetaMask for compatibility
   private _selectedAddress: string | null = null;
-  private _eventListeners: Map<string, Set<Function>> = new Map();
+  private _chainId = '0x1'; // Ethereum Mainnet
 
   constructor() {
+    super();
     this._initialize();
   }
 
@@ -163,27 +189,6 @@ class MatrixLabsProvider {
         reject(new Error('Request timeout'));
       }, 60000);
     });
-  }
-
-  on(event: string, callback: Function): void {
-    if (!this._eventListeners.has(event)) {
-      this._eventListeners.set(event, new Set());
-    }
-    this._eventListeners.get(event)!.add(callback);
-  }
-
-  removeListener(event: string, callback: Function): void {
-    const listeners = this._eventListeners.get(event);
-    if (listeners) {
-      listeners.delete(callback);
-    }
-  }
-
-  emit(event: string, ...args: any[]): void {
-    const listeners = this._eventListeners.get(event);
-    if (listeners) {
-      listeners.forEach((callback) => callback(...args));
-    }
   }
 }
 
