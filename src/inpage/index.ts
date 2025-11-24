@@ -1,6 +1,10 @@
 // Inpage script for MatrixLabs Wallet
 // Provides the window.ethereum API for dApps
 
+// Wrap in IIFE to avoid variable conflicts
+(function() {
+  'use strict';
+
 interface RequestArguments {
   method: string;
   params?: unknown[] | object;
@@ -59,7 +63,7 @@ class MatrixLabsProvider {
     const response = await this._sendMessage('GET_ACCOUNTS', {});
     if (response.success && response.accounts.length > 0) {
       this._selectedAddress = response.currentAccount?.address || response.accounts[0].address;
-      return [this._selectedAddress];
+      return [this._selectedAddress!];
     }
     throw new Error('User rejected the request');
   }
@@ -160,3 +164,5 @@ const provider = new MatrixLabsProvider();
 window.dispatchEvent(new Event('ethereum#initialized'));
 
 console.log('MatrixLabs Wallet provider injected');
+
+})(); // End of IIFE

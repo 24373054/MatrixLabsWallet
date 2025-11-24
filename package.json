@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "release:patch": "node scripts/release.cjs patch",
+    "release:minor": "node scripts/release.cjs minor",
+    "release:major": "node scripts/release.cjs major",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
