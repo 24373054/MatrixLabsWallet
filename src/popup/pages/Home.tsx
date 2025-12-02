@@ -7,6 +7,7 @@ import { useWalletStore } from '../../store/wallet';
 import { ProviderService } from '../../lib/provider';
 import { StableGuardBadge } from '../components/StableGuardBadge';
 import { RiskLevel } from '../../lib/stableguard';
+import { TokenService, TokenBalance } from '../../lib/tokenService';
 
 interface HomeProps {
   onNavigate?: (page: 'send' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
@@ -19,6 +20,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const loadingRef = useRef(false);
   const [overallRisk, setOverallRisk] = useState<RiskLevel>(RiskLevel.LOW);
   const [highRiskCount, setHighRiskCount] = useState(0);
+  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
 
   const loadBalance = useCallback(async () => {
     if (!currentAccount || !currentNetwork || loadingRef.current) return;
@@ -38,6 +40,23 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       loadingRef.current = false;
     }
   }, [currentAccount, currentNetwork, setBalance]);
+
+  const loadTokenBalances = useCallback(async () => {
+    if (!currentAccount || !currentNetwork) return;
+    
+    console.log('[loadTokenBalances] Loading token balances...');
+    try {
+      const balances = await TokenService.getTokenBalances(
+        currentAccount.address,
+        currentNetwork
+      );
+      console.log(`[loadTokenBalances] Got ${balances.length} token balances`);
+      setTokenBalances(balances);
+    } catch (error) {
+      console.error('[loadTokenBalances] Failed to load token balances:', error);
+      setTokenBalances([]);
+    }
+  }, [currentAccount, currentNetwork]);
 
   const loadStableGuardRisk = useCallback(async () => {
     try {
@@ -74,8 +93,9 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   useEffect(() => {
     console.log(`useEffect triggered: currentNetwork=${currentNetwork?.name}`);
     loadBalance();
+    loadTokenBalances();
     loadStableGuardRisk();
-  }, [currentAccount?.address, currentNetwork?.id, loadBalance, loadStableGuardRisk]);
+  }, [currentAccount?.address, currentNetwork?.id, loadBalance, loadTokenBalances, loadStableGuardRisk]);
 
   const handleCopyAddress = () => {
     if (currentAccount) {
@@ -188,38 +208,46 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <h3 className="text-sm font-medium text-matrix-text-secondary px-2">资产</h3>
         </div>
 
-        <Card hover className="mb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
-                <span className="text-sm font-bold text-matrix-text-primary">
-                  {currentNetwork?.symbol.charAt(0)}
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-matrix-text-primary">
-                  {currentNetwork?.symbol}
-                </p>
-                <p className="text-xs text-matrix-text-muted">
-                  {currentNetwork?.name}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-matrix-text-primary">
-                {parseFloat(balance).toFixed(4)}
-              </p>
-              <p className="text-xs text-matrix-text-muted">
-                {currentNetwork?.symbol}
-              </p>
-            </div>
+        {/* Token List */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-2 border-matrix-accent-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        </Card>
-
-        {/* Empty state */}
-        <div className="text-center py-8">
-          <p className="text-sm text-matrix-text-muted">暂无其他资产</p>
-        </div>
+        ) : tokenBalances.length > 0 ? (
+          tokenBalances.map((tokenBalance) => (
+            <Card key={tokenBalance.token.address} hover className="mb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-matrix-text-primary">
+                      {tokenBalance.token.symbol.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-matrix-text-primary">
+                      {tokenBalance.token.symbol}
+                    </p>
+                    <p className="text-xs text-matrix-text-muted">
+                      {tokenBalance.token.name}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-matrix-text-primary">
+                    {parseFloat(tokenBalance.balance).toFixed(4)}
+                  </p>
+                  <p className="text-xs text-matrix-text-muted">
+                    {tokenBalance.token.symbol}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-sm text-matrix-text-muted">暂无资产</p>
+          </div>
+        )}
       </div>
     </div>
   );
