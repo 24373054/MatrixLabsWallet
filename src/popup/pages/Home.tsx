@@ -5,9 +5,11 @@ import { NetworkSelector } from '../../components/NetworkSelector';
 import { Send, ArrowDownToLine, Copy, Check, Settings } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { ProviderService } from '../../lib/provider';
+import { StableGuardBadge } from '../components/StableGuardBadge';
+import { RiskLevel } from '../../lib/stableguard';
 
 interface HomeProps {
-  onNavigate?: (page: 'send' | 'receive' | 'settings') => void;
+  onNavigate?: (page: 'send' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
@@ -15,6 +17,8 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const loadingRef = useRef(false);
+  const [overallRisk, setOverallRisk] = useState<RiskLevel>(RiskLevel.LOW);
+  const [highRiskCount, setHighRiskCount] = useState(0);
 
   const loadBalance = useCallback(async () => {
     if (!currentAccount || !currentNetwork || loadingRef.current) return;
@@ -35,10 +39,43 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     }
   }, [currentAccount, currentNetwork, setBalance]);
 
+  const loadStableGuardRisk = useCallback(async () => {
+    try {
+      const stablecoinIds = ['usdt', 'usdc', 'dai'];
+      const risks: RiskLevel[] = [];
+      let highCount = 0;
+
+      for (const id of stablecoinIds) {
+        const key = `stableguard_risk_${id}`;
+        const result = await chrome.storage.local.get(key);
+        const report = result[key];
+        
+        if (report) {
+          risks.push(report.riskLevel);
+          if (report.riskLevel === 'D' || report.riskLevel === 'E') {
+            highCount++;
+          }
+        }
+      }
+
+      // Calculate overall risk (highest among all)
+      const riskOrder = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 };
+      const maxRisk = risks.reduce((max, risk) => {
+        return riskOrder[risk as keyof typeof riskOrder] > riskOrder[max as keyof typeof riskOrder] ? risk : max;
+      }, RiskLevel.VERY_LOW);
+
+      setOverallRisk(maxRisk);
+      setHighRiskCount(highCount);
+    } catch (error) {
+      console.error('[Home] Failed to load StableGuard risk:', error);
+    }
+  }, []);
+
   useEffect(() => {
     console.log(`useEffect triggered: currentNetwork=${currentNetwork?.name}`);
     loadBalance();
-  }, [currentAccount?.address, currentNetwork?.id, loadBalance]);
+    loadStableGuardRisk();
+  }, [currentAccount?.address, currentNetwork?.id, loadBalance, loadStableGuardRisk]);
 
   const handleCopyAddress = () => {
     if (currentAccount) {
@@ -133,6 +170,15 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <ArrowDownToLine size={18} />
             接收
           </Button>
+        </div>
+
+        {/* StableGuard Badge */}
+        <div className="mt-4">
+          <StableGuardBadge
+            overallRisk={overallRisk}
+            highRiskCount={highRiskCount}
+            onClick={() => onNavigate?.('stableguard-dashboard')}
+          />
         </div>
       </div>
 

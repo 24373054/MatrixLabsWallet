@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, ArrowRight, Fuel } from 'lucide-react';
+import { AlertCircle, ArrowRight, Fuel, Shield, AlertTriangle } from 'lucide-react';
 import { ethers } from 'ethers';
 
 interface TransactionData {
@@ -13,6 +13,7 @@ interface TransactionData {
   maxPriorityFeePerGas?: string;
   nonce?: string;
   chainId?: number;
+  stableGuardEvaluation?: any;
 }
 
 interface SendTransactionProps {
@@ -90,6 +91,49 @@ export default function SendTransaction({ onApprove, onReject }: SendTransaction
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* StableGuard Risk Warning */}
+        {transaction.stableGuardEvaluation && transaction.stableGuardEvaluation.decision !== 'allow' && (
+          <div className={`
+            p-4 rounded-lg border-2
+            ${transaction.stableGuardEvaluation.decision === 'warn' 
+              ? 'bg-yellow-50 border-yellow-300' 
+              : 'bg-red-50 border-red-300'
+            }
+          `}>
+            <div className="flex items-start gap-3">
+              {transaction.stableGuardEvaluation.decision === 'warn' ? (
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+              ) : (
+                <Shield className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className={`font-semibold mb-1 ${
+                  transaction.stableGuardEvaluation.decision === 'warn' 
+                    ? 'text-yellow-800' 
+                    : 'text-red-800'
+                }`}>
+                  StableGuard 风险提示
+                </div>
+                <p className={`text-sm leading-relaxed ${
+                  transaction.stableGuardEvaluation.decision === 'warn' 
+                    ? 'text-yellow-700' 
+                    : 'text-red-700'
+                }`}>
+                  {transaction.stableGuardEvaluation.message}
+                </p>
+                {transaction.stableGuardEvaluation.details && (
+                  <p className={`text-xs mt-2 ${
+                    transaction.stableGuardEvaluation.decision === 'warn' 
+                      ? 'text-yellow-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {transaction.stableGuardEvaluation.details}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Value */}
         {parseFloat(valueInEth) > 0 && (
           <div className="bg-matrix-surface rounded-lg p-4 border border-matrix-border">
