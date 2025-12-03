@@ -1,28 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { Card } from '../../components/Card';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ChevronDown } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { WalletService } from '../../lib/wallet';
 import { ProviderService } from '../../lib/provider';
 import { ethers } from 'ethers';
+import { TokenService, TokenBalance } from '../../lib/tokenService';
+import { Token } from '../../lib/tokens';
 
 interface SendProps {
   onBack: () => void;
 }
 
 export const Send: React.FC<SendProps> = ({ onBack }) => {
-  const { currentAccount, currentNetwork, balance } = useWalletStore();
+  const { currentAccount, currentNetwork } = useWalletStore();
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [txHash, setTxHash] = useState('');
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
+  const [showTokenSelector, setShowTokenSelector] = useState(false);
+
+  // Load token balances on mount
+  useEffect(() => {
+    const loadTokens = async () => {
+      if (!currentAccount || !currentNetwork) return;
+      
+      try {
+        const balances = await TokenService.getTokenBalances(
+          currentAccount.address,
+          currentNetwork
+        );
+        setTokenBalances(balances);
+        
+        // Set default token (native token)
+        if (balances.length > 0) {
+          const nativeToken = balances.find(b => b.token.isNative);
+          setSelectedToken(nativeToken?.token || balances[0].token);
+        }
+      } catch (error) {
+        console.error('[Send] Failed to load tokens:', error);
+      }
+    };
+    
+    loadTokens();
+  }, [currentAccount, currentNetwork]);
 
   const handleSend = async () => {
-    if (!currentAccount || !currentNetwork) return;
+    if (!currentAccount || !currentNetwork || !selectedToken) return;
 
     setError('');
     setLoading(true);
@@ -39,25 +69,50 @@ export const Send: React.FC<SendProps> = ({ onBack }) => {
         throw new Error('无效的金额');
       }
 
-      if (amountValue > parseFloat(balance)) {
+      // Check balance
+      const tokenBalance = tokenBalances.find(b => b.token.address === selectedToken.address);
+      if (tokenBalance && amountValue > parseFloat(tokenBalance.balance)) {
         throw new Error('余额不足');
       }
 
       // Get gas price and nonce
       const gasPrice = await ProviderService.getGasPrice(currentNetwork);
       const nonce = await ProviderService.getTransactionCount(currentAccount.address, currentNetwork);
-      const gasLimit = 21000n;
 
-      // Create legacy transaction (Type 0) for better compatibility
-      const tx = {
-        to: recipient,
-        value: ethers.parseEther(amount),
-        gasLimit,
-        gasPrice,
-        nonce,
-        chainId: currentNetwork.chainId,
-        type: 0, // Legacy transaction
-      };
+      let tx: any;
+
+      if (selectedToken.isNative) {
+        // Native token transfer (ETH, BNB, etc.)
+        tx = {
+          to: recipient,
+          value: ethers.parseUnits(amount, selectedToken.decimals),
+          gasLimit: 21000n,
+          gasPrice,
+          nonce,
+          chainId: currentNetwork.chainId,
+          type: 0,
+        };
+      } else {
+        // ERC-20 token transfer
+        const tokenContract = new ethers.Interface([
+          'function transfer(address to, uint256 amount) returns (bool)'
+        ]);
+        const data = tokenContract.encodeFunctionData('transfer', [
+          recipient,
+          ethers.parseUnits(amount, selectedToken.decimals)
+        ]);
+
+        tx = {
+          to: selectedToken.address,
+          value: 0n,
+          data,
+          gasLimit: 65000n, // Higher gas limit for ERC-20
+          gasPrice,
+          nonce,
+          chainId: currentNetwork.chainId,
+          type: 0,
+        };
+      }
 
       // Sign and send transaction
       const signedTx = await WalletService.signTransaction(tx);
@@ -75,9 +130,18 @@ export const Send: React.FC<SendProps> = ({ onBack }) => {
   };
 
   const handleMaxAmount = () => {
-    // Reserve some for gas fees
-    const maxAmount = Math.max(0, parseFloat(balance) - 0.001);
-    setAmount(maxAmount.toString());
+    if (!selectedToken) return;
+    
+    const tokenBalance = tokenBalances.find(b => b.token.address === selectedToken.address);
+    if (!tokenBalance) return;
+    
+    // Reserve some for gas fees (only for native token)
+    const balanceValue = parseFloat(tokenBalance.balance);
+    const maxAmount = selectedToken.isNative 
+      ? Math.max(0, balanceValue - 0.001) 
+      : balanceValue;
+    
+    setAmount(maxAmount.toFixed(6));
   };
 
   if (success) {
@@ -135,12 +199,82 @@ export const Send: React.FC<SendProps> = ({ onBack }) => {
           <ArrowLeft size={20} />
         </button>
         <h2 className="ml-2 text-lg font-semibold text-matrix-text-primary">
-          发送 {currentNetwork?.symbol}
+          发送
         </h2>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="space-y-4">
+          {/* Token Selector */}
+          <div>
+            <label className="text-sm font-medium text-matrix-text-secondary mb-2 block">
+              选择代币
+            </label>
+            <button
+              onClick={() => setShowTokenSelector(!showTokenSelector)}
+              className="w-full p-3 bg-matrix-surface border border-matrix-border rounded-lg hover:border-matrix-accent-primary/50 transition-smooth"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-matrix-text-primary">
+                      {selectedToken?.symbol.charAt(0) || '?'}
+                    </span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-matrix-text-primary">
+                      {selectedToken?.symbol || '选择代币'}
+                    </p>
+                    <p className="text-xs text-matrix-text-muted">
+                      {selectedToken?.name || ''}
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown size={20} className="text-matrix-text-secondary" />
+              </div>
+            </button>
+
+            {/* Token Selector Dropdown */}
+            {showTokenSelector && (
+              <Card className="mt-2 max-h-60 overflow-y-auto">
+                {tokenBalances.map((tokenBalance) => (
+                  <button
+                    key={tokenBalance.token.address}
+                    onClick={() => {
+                      setSelectedToken(tokenBalance.token);
+                      setShowTokenSelector(false);
+                      setAmount('');
+                    }}
+                    className="w-full p-3 hover:bg-matrix-surface/50 transition-smooth text-left border-b border-matrix-border last:border-b-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-bold text-matrix-text-primary">
+                            {tokenBalance.token.symbol.charAt(0)}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-matrix-text-primary">
+                            {tokenBalance.token.symbol}
+                          </p>
+                          <p className="text-xs text-matrix-text-muted">
+                            {tokenBalance.token.name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-matrix-text-primary">
+                          {parseFloat(tokenBalance.balance).toFixed(4)}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </Card>
+            )}
+          </div>
+
           <Input
             label="接收地址"
             placeholder="0x..."
@@ -166,9 +300,11 @@ export const Send: React.FC<SendProps> = ({ onBack }) => {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
-            <p className="text-xs text-matrix-text-muted mt-1">
-              可用余额: {parseFloat(balance).toFixed(6)} {currentNetwork?.symbol}
-            </p>
+            {selectedToken && (
+              <p className="text-xs text-matrix-text-muted mt-1">
+                可用余额: {tokenBalances.find(b => b.token.address === selectedToken.address)?.balance || '0'} {selectedToken.symbol}
+              </p>
+            )}
           </div>
 
           {error && (
