@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import { ArrowLeft, Lock, Globe, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Lock, Globe, Trash2, AlertCircle, Shield } from 'lucide-react';
 import { WalletService } from '../../lib/wallet';
 import { StorageService } from '../../lib/storage';
 
 interface SettingsProps {
   onBack: () => void;
   onLock: () => void;
-  onNavigate?: (page: 'network-settings') => void;
+  onNavigate?: (page: 'network-settings' | 'stableguard-settings') => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({ onBack, onLock, onNavigate }) => {
@@ -69,6 +69,23 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, onLock, onNavigate }
                 </h3>
                 <p className="text-xs text-matrix-text-muted">
                   管理自定义网络
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* StableGuard Settings */}
+          <Card hover onClick={() => onNavigate?.('stableguard-settings')} className="cursor-pointer">
+            <div className="flex items-center gap-3 p-4">
+              <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
+                <Shield size={20} className="text-green-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-matrix-text-primary">
+                  StableGuard 风控
+                </h3>
+                <p className="text-xs text-matrix-text-muted">
+                  配置稳定币风险控制
                 </p>
               </div>
             </div>

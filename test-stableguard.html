@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StableGuard 测试页面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            border-left: 4px solid #4CAF50;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        .warning {
+            border-left-color: #ff9800;
+            background: #fff3e0;
+        }
+        .info {
+            border-left-color: #2196F3;
+            background: #e3f2fd;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success { background: #4CAF50; color: white; }
+        .status.error { background: #f44336; color: white; }
+        .status.pending { background: #ff9800; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🛡️ StableGuard 功能测试</h1>
+    <p>这个页面用于测试 MatrixLabs Wallet 的 StableGuard 功能</p>
+
+    <!-- Test 1: Check Extension -->
+    <div class="card">
+        <h2>1. 检查扩展是否安装 <span id="status1" class="status pending">等待测试</span></h2>
+        <button onclick="testExtension()">开始测试</button>
+        <div id="result1" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- Test 2: Trigger Risk Assessment -->
+    <div class="card">
+        <h2>2. 触发风险评估 <span id="status2" class="status pending">等待测试</span></h2>
+        <button onclick="triggerAssessment()">触发评估</button>
+        <div id="result2" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- Test 3: Check Risk Data -->
+    <div class="card">
+        <h2>3. 查看风险数据 <span id="status3" class="status pending">等待测试</span></h2>
+        <button onclick="checkRiskData()">查看数据</button>
+        <div id="result3" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- Test 4: Test Transaction -->
+    <div class="card">
+        <h2>4. 模拟稳定币交易 <span id="status4" class="status pending">等待测试</span></h2>
+        <p style="color: #666; font-size: 14px;">
+            这将模拟一笔 USDT 转账，测试 StableGuard 是否会拦截并评估
+        </p>
+        <button onclick="testTransaction()">模拟交易</button>
+        <div id="result4" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="card" style="background: #e3f2fd;">
+        <h3>📝 使用说明</h3>
+        <ol>
+            <li>确保已安装 MatrixLabs Wallet 扩展</li>
+            <li>确保钱包已解锁</li>
+            <li>按顺序点击测试按钮</li>
+            <li>查看 Background DevTools 的 Console 输出</li>
+        </ol>
+    </div>
+
+    <script>
+        // Test 1: Check if extension is installed
+        async function testExtension() {
+            const resultDiv = document.getElementById('result1');
+            const statusSpan = document.getElementById('status1');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在检查扩展...';
+
+            try {
+                // Try to detect if window.ethereum exists (injected by wallet)
+                if (typeof window.ethereum !== 'undefined') {
+                    resultDiv.className = 'result';
+                    resultDiv.textContent = '✅ 检测到钱包扩展！\n\n' +
+                        'Provider: ' + (window.ethereum.isMatrixLabs ? 'MatrixLabs Wallet' : 'Unknown') + '\n' +
+                        'Chain ID: ' + (window.ethereum.chainId || 'Unknown');
+                    statusSpan.className = 'status success';
+                    statusSpan.textContent = '通过';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ 未检测到钱包扩展\n\n请确保：\n1. 已安装 MatrixLabs Wallet\n2. 已刷新此页面';
+                    statusSpan.className = 'status error';
+                    statusSpan.textContent = '失败';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ 测试出错：' + error.message;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = '错误';
+            }
+        }
+
+        // Test 2: Trigger risk assessment
+        async function triggerAssessment() {
+            const resultDiv = document.getElementById('result2');
+            const statusSpan = document.getElementById('status2');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在触发风险评估...\n\n请查看 Background DevTools Console';
+
+            try {
+                // This will trigger when user opens the wallet
+                // We can't directly call background scripts from web page
+                resultDiv.className = 'result warning';
+                resultDiv.textContent = '⚠️ 无法从网页直接触发评估\n\n' +
+                    '请手动操作：\n' +
+                    '1. 打开钱包扩展\n' +
+                    '2. 进入 Home 页面\n' +
+                    '3. 点击 StableGuard 徽章\n' +
+                    '4. 点击刷新按钮\n\n' +
+                    '然后查看 Background Console 输出：\n' +
+                    '[StableGuard] Starting risk assessment...\n' +
+                    '[DataAgent] Starting data collection...\n' +
+                    '[StableGuard] Assessment completed';
+                statusSpan.className = 'status pending';
+                statusSpan.textContent = '需手动';
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ 错误：' + error.message;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = '错误';
+            }
+        }
+
+        // Test 3: Check risk data (via Chrome Storage API - won't work from web page)
+        async function checkRiskData() {
+            const resultDiv = document.getElementById('result3');
+            const statusSpan = document.getElementById('status3');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在查询风险数据...';
+
+            try {
+                // Web pages can't access chrome.storage
+                resultDiv.className = 'result warning';
+                resultDiv.textContent = '⚠️ 无法从网页访问 Chrome Storage\n\n' +
+                    '请在 Background DevTools Console 中执行：\n\n' +
+                    'chrome.storage.local.get([\n' +
+                    '  "stableguard_risk_usdt",\n' +
+                    '  "stableguard_risk_usdc",\n' +
+                    '  "stableguard_risk_dai",\n' +
+                    '  "stableguard_last_update"\n' +
+                    '], (result) => {\n' +
+                    '  console.log("StableGuard Data:", result);\n' +
+                    '});';
+                statusSpan.className = 'status pending';
+                statusSpan.textContent = '需手动';
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ 错误：' + error.message;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = '错误';
+            }
+        }
+
+        // Test 4: Test transaction
+        async function testTransaction() {
+            const resultDiv = document.getElementById('result4');
+            const statusSpan = document.getElementById('status4');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在准备交易...';
+
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('未检测到钱包扩展');
+                }
+
+                // Request accounts
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                if (!accounts || accounts.length === 0) {
+                    throw new Error('未获取到账户');
+                }
+
+                // USDT contract address on Ethereum mainnet
+                const usdtAddress = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+                
+                // Prepare transaction (won't actually send)
+                const txParams = {
+                    from: accounts[0],
+                    to: usdtAddress,
+                    value: '0x0',
+                    data: '0xa9059cbb' + // transfer function signature
+                          '000000000000000000000000' + accounts[0].substring(2) + // to address
+                          '0000000000000000000000000000000000000000000000000000000000000064' // amount (100 in hex)
+                };
+
+                resultDiv.className = 'result';
+                resultDiv.textContent = '✅ 交易已准备\n\n' +
+                    '交易详情：\n' +
+                    'From: ' + accounts[0] + '\n' +
+                    'To: ' + usdtAddress + ' (USDT)\n' +
+                    'Function: transfer()\n\n' +
+                    '⚠️ 注意：这只是准备交易，不会实际发送\n\n' +
+                    '要测试 StableGuard：\n' +
+                    '1. 在钱包中发起一笔真实的 USDT 转账\n' +
+                    '2. 观察确认页面是否显示风险提示\n' +
+                    '3. 查看 Background Console 的评估日志';
+                statusSpan.className = 'status success';
+                statusSpan.textContent = '已准备';
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ 错误：' + error.message + '\n\n' +
+                    '可能的原因：\n' +
+                    '1. 钱包未连接\n' +
+                    '2. 用户拒绝连接\n' +
+                    '3. 钱包未解锁';
+                statusSpan.className = 'status error';
+                statusSpan.textContent = '失败';
+            }
+        }
+
+        // Auto-run first test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testExtension, 500);
+        });
+    </script>
+</body>
+</html>

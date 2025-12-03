@@ -4,6 +4,8 @@ export interface StorageData {
   currentNetwork?: string;
   networks?: Network[];
   settings?: WalletSettings;
+  stableguard_config?: any; // StableGuard configuration
+  stableguard_enabled?: boolean; // Quick access to enabled state
 }
 
 export interface Network {

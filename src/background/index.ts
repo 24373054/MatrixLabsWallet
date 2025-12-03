@@ -2,6 +2,7 @@
 import { ethers } from 'ethers';
 import { CryptoService } from '../lib/crypto';
 import { RPCService } from '../lib/rpc';
+import { getStableGuard } from '../lib/stableguard';
 
 // Ensure chrome API is available
 if (typeof chrome === 'undefined') {
@@ -228,9 +229,37 @@ async function handleSendTransaction(data: any, sendResponse: (response: any) =>
     // Extract transaction params
     const txParams = Array.isArray(data) ? data[0] : data;
     
-    // Save pending transaction
+    // StableGuard: Evaluate transaction risk
+    let stableGuardEvaluation = null;
+    try {
+      const stableGuard = await getStableGuard();
+      stableGuardEvaluation = await stableGuard.evaluateTransaction(txParams);
+      
+      if (stableGuardEvaluation) {
+        console.log('[Background] StableGuard evaluation:', stableGuardEvaluation.decision);
+        
+        // If StableGuard blocks the transaction, return error immediately
+        if (stableGuardEvaluation.decision === 'block') {
+          console.log('[Background] Transaction blocked by StableGuard');
+          sendResponse({ 
+            success: false, 
+            error: stableGuardEvaluation.message,
+            stableGuardBlocked: true
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('[Background] StableGuard evaluation failed:', error);
+      // Continue with transaction even if StableGuard fails
+    }
+    
+    // Save pending transaction with StableGuard evaluation
     await chrome.storage.local.set({
-      pendingTransaction: txParams
+      pendingTransaction: {
+        ...txParams,
+        stableGuardEvaluation
+      }
     });
 
     // Open popup for user confirmation
@@ -620,12 +649,40 @@ async function handleRPCCall(data: any, sendResponse: (response: any) => void) {
   }
 }
 
-// Keep service worker alive
+// Keep service worker alive and run StableGuard periodic assessment
 if (chrome.alarms) {
   chrome.alarms.create('keepAlive', { periodInMinutes: 1 });
-  chrome.alarms.onAlarm.addListener((alarm) => {
+  chrome.alarms.create('stableGuardAssessment', { periodInMinutes: 5 }); // Every 5 minutes
+  
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === 'keepAlive') {
       console.log('Service worker keep-alive ping');
+    } else if (alarm.name === 'stableGuardAssessment') {
+      console.log('[StableGuard] Running periodic risk assessment');
+      try {
+        const stableGuard = await getStableGuard();
+        const result = await stableGuard.performRiskAssessment();
+        if (result.success) {
+          console.log('[StableGuard] Assessment completed:', result.stablecoins.length, 'stablecoins');
+          
+          // Check for high risk and create notification if needed
+          const highRiskCoins = result.stablecoins.filter(c => 
+            c.riskLevel === 'D' || c.riskLevel === 'E'
+          );
+          
+          if (highRiskCoins.length > 0) {
+            chrome.notifications.create({
+              type: 'basic',
+              iconUrl: 'icons/icon128.svg',
+              title: 'StableGuard 风险警报',
+              message: `检测到 ${highRiskCoins.length} 个稳定币存在高风险，请查看详情。`,
+              priority: 2
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[StableGuard] Periodic assessment failed:', error);
+      }
     }
   });
 }
