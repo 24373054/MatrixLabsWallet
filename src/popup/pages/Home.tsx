@@ -153,25 +153,25 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </div>
 
       {/* Balance */}
-      <div className="px-6 py-8">
+      <div className="px-6 py-5">
         <div className="text-center">
-          <p className="text-sm text-matrix-text-secondary mb-2">总余额</p>
+          <p className="text-xs text-matrix-text-secondary mb-1.5">总余额</p>
           {loading ? (
             <div className="flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-matrix-accent-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <>
-              <h1 className="text-4xl font-bold text-matrix-text-primary mb-1">
+              <h1 className="text-3xl font-bold text-matrix-text-primary mb-0.5">
                 {parseFloat(balance).toFixed(4)}
               </h1>
-              <p className="text-sm text-matrix-text-muted">{currentNetwork?.symbol}</p>
+              <p className="text-xs text-matrix-text-muted">{currentNetwork?.symbol}</p>
             </>
           )}
         </div>
 
         {/* Actions */}
-        <div className="grid grid-cols-2 gap-2 mt-6">
+        <div className="grid grid-cols-2 gap-2 mt-4">
           <Button 
             variant="primary" 
             fullWidth 
@@ -210,8 +210,35 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           </Button>
         </div>
 
+        {/* DeFi / Staking Card */}
+        <Card 
+          hover 
+          className="mt-3 cursor-pointer bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/20"
+          onClick={() => onNavigate?.('staking')}
+        >
+          <div className="flex items-center justify-between p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-green-500/20 rounded-full flex items-center justify-center">
+                <TrendingUp size={18} className="text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-matrix-text-primary">
+                  质押 & DeFi
+                </h3>
+                <p className="text-xs text-matrix-text-muted">
+                  让您的资产增值
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-green-400 font-semibold">APY 3-30%</p>
+              <p className="text-xs text-matrix-text-muted">查看机会</p>
+            </div>
+          </div>
+        </Card>
+
         {/* StableGuard Badge */}
-        <div className="mt-4">
+        <div className="mt-3">
           <StableGuardBadge
             overallRisk={overallRisk}
             highRiskCount={highRiskCount}
@@ -266,33 +293,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <p className="text-sm text-matrix-text-muted">暂无资产</p>
           </div>
         )}
-
-        {/* DeFi / Staking Card */}
-        <Card 
-          hover 
-          className="mt-4 cursor-pointer bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/20"
-          onClick={() => onNavigate?.('staking')}
-        >
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                <TrendingUp size={20} className="text-green-400" />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-matrix-text-primary">
-                  质押 & DeFi
-                </h3>
-                <p className="text-xs text-matrix-text-muted">
-                  让您的资产增值
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-green-400 font-semibold">APY 3-30%</p>
-              <p className="text-xs text-matrix-text-muted">查看机会</p>
-            </div>
-          </div>
-        </Card>
       </div>
     </div>
   );
