@@ -8,6 +8,7 @@ import { Send } from './pages/Send';
 import { Swap } from './pages/Swap';
 import { Bridge } from './pages/Bridge';
 import { Staking } from './pages/Staking';
+import { History } from './pages/History';
 import { Receive } from './pages/Receive';
 import { Settings } from './pages/Settings';
 import { NetworkSettings } from './pages/NetworkSettings';
@@ -20,7 +21,7 @@ import { StorageService, DEFAULT_NETWORKS } from '../lib/storage';
 import { WalletService } from '../lib/wallet';
 import { useWalletStore } from '../store/wallet';
 
-type AppState = 'loading' | 'welcome' | 'create' | 'import' | 'unlock' | 'home' | 'send' | 'swap' | 'bridge' | 'staking' | 'receive' | 'settings' | 'network-settings' | 'connect-request' | 'sign-message' | 'send-transaction' | 'stableguard-dashboard' | 'stableguard-settings';
+type AppState = 'loading' | 'welcome' | 'create' | 'import' | 'unlock' | 'home' | 'send' | 'swap' | 'bridge' | 'staking' | 'history' | 'receive' | 'settings' | 'network-settings' | 'connect-request' | 'sign-message' | 'send-transaction' | 'stableguard-dashboard' | 'stableguard-settings';
 
 function App() {
   const [appState, setAppState] = useState<AppState>('loading');
@@ -270,6 +271,10 @@ function App() {
     return <Staking onBack={() => setAppState('home')} />;
   }
 
+  if (appState === 'history') {
+    return <History onBack={() => setAppState('home')} />;
+  }
+
   if (appState === 'receive') {
     return <Receive onBack={() => setAppState('home')} />;
   }
@@ -323,7 +328,7 @@ function App() {
     return <StableGuardSettings onBack={() => setAppState('settings')} />;
   }
 
-  return <Home onNavigate={(page: 'send' | 'swap' | 'bridge' | 'staking' | 'receive' | 'settings' | 'stableguard-dashboard') => setAppState(page)} />;
+  return <Home onNavigate={(page: 'send' | 'swap' | 'bridge' | 'staking' | 'history' | 'receive' | 'settings' | 'stableguard-dashboard') => setAppState(page)} />;
 }
 
 export default App;

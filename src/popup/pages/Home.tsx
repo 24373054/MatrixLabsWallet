@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NetworkSelector } from '../../components/NetworkSelector';
-import { Send, ArrowDownToLine, ArrowLeftRight, GitBranch, TrendingUp, Copy, Check, Settings } from 'lucide-react';
+import { Send, ArrowDownToLine, ArrowLeftRight, GitBranch, TrendingUp, History as HistoryIcon, Copy, Check, Settings } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { ProviderService } from '../../lib/provider';
 import { StableGuardBadge } from '../components/StableGuardBadge';
@@ -10,7 +10,7 @@ import { RiskLevel } from '../../lib/stableguard';
 import { TokenService, TokenBalance } from '../../lib/tokenService';
 
 interface HomeProps {
-  onNavigate?: (page: 'send' | 'swap' | 'bridge' | 'staking' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
+  onNavigate?: (page: 'send' | 'swap' | 'bridge' | 'staking' | 'history' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
