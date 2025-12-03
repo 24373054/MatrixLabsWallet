@@ -30,11 +30,11 @@ interface AgentVisualizationProps {
 
 export function AgentVisualization({ stablecoinId = 'usdt' }: AgentVisualizationProps) {
   const [agents, setAgents] = useState<AgentStatus[]>([
-    { name: 'DataAgent', status: 'completed', duration: 1710 },
-    { name: 'FeatureAgent', status: 'completed', duration: 1 },
-    { name: 'RiskAgent', status: 'completed', duration: 1 },
-    { name: 'StrategyAgent', status: 'completed', duration: 0 },
-    { name: 'ExecutionAgent', status: 'completed', duration: 5 }
+    { name: 'DataAgent', status: 'idle' },
+    { name: 'FeatureAgent', status: 'idle' },
+    { name: 'RiskAgent', status: 'idle' },
+    { name: 'StrategyAgent', status: 'idle' },
+    { name: 'ExecutionAgent', status: 'idle' }
   ]);
   const [metrics, setMetrics] = useState<any>(null);
 
@@ -46,26 +46,55 @@ export function AgentVisualization({ stablecoinId = 'usdt' }: AgentVisualization
 
   const loadAgentStatus = async () => {
     try {
-      // 从存储中读取最新的评估数据
-      const key = `stableguard_risk_${stablecoinId}`;
-      const result = await chrome.storage.local.get([key, 'stableguard_last_update']);
+      // 从存储中读取真实的性能指标
+      const result = await chrome.storage.local.get([
+        `stableguard_risk_${stablecoinId}`,
+        'stableguard_last_update',
+        'stableguard_metrics'
+      ]);
       
-      if (result[key]) {
-        const report = result[key];
-        
-        // 更新智能体状态为已完成
+      const report = result[`stableguard_risk_${stablecoinId}`];
+      const realMetrics = result.stableguard_metrics;
+      
+      if (report && realMetrics) {
+        // 使用真实的执行指标
         setAgents([
-          { name: 'DataAgent', status: 'completed', duration: 1710, dataPoints: 3 },
-          { name: 'FeatureAgent', status: 'completed', duration: 1, dataPoints: 6 },
-          { name: 'RiskAgent', status: 'completed', duration: 1, dataPoints: 1 },
-          { name: 'StrategyAgent', status: 'completed', duration: 0, dataPoints: 1 },
-          { name: 'ExecutionAgent', status: 'completed', duration: 5, dataPoints: 1 }
+          { 
+            name: 'DataAgent', 
+            status: 'completed', 
+            duration: realMetrics.dataAgent?.duration || 0,
+            dataPoints: realMetrics.dataAgent?.dataPoints || 0
+          },
+          { 
+            name: 'FeatureAgent', 
+            status: 'completed', 
+            duration: realMetrics.featureAgent?.duration || 0,
+            dataPoints: realMetrics.featureAgent?.dataPoints || 0
+          },
+          { 
+            name: 'RiskAgent', 
+            status: 'completed', 
+            duration: realMetrics.riskAgent?.duration || 0,
+            dataPoints: realMetrics.riskAgent?.dataPoints || 0
+          },
+          { 
+            name: 'StrategyAgent', 
+            status: 'completed', 
+            duration: realMetrics.strategyAgent?.duration || 0,
+            dataPoints: realMetrics.strategyAgent?.dataPoints || 0
+          },
+          { 
+            name: 'ExecutionAgent', 
+            status: 'completed', 
+            duration: realMetrics.executionAgent?.duration || 0,
+            dataPoints: realMetrics.executionAgent?.dataPoints || 0
+          }
         ]);
         
         setMetrics({
           riskLevel: report.riskLevel,
           riskScore: report.riskScore,
-          features: report.evidence?.length || 6,
+          features: report.evidence?.length || 0,
           lastUpdate: result.stableguard_last_update
         });
       }

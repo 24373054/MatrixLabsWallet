@@ -100,33 +100,67 @@ export class StableGuard {
 
     this.isRunning = true;
     const startTime = Date.now();
+    const metrics: any = {};
 
     try {
       console.log('[StableGuard] Starting risk assessment...');
 
       // 1. 数据感知
+      const dataStart = Date.now();
       const dataOutput = await dataAgent.collectData(this.config.monitoredStablecoins);
+      metrics.dataAgent = {
+        duration: Date.now() - dataStart,
+        dataPoints: dataOutput.signals.length,
+        quality: dataOutput.dataQuality
+      };
       if (dataOutput.dataQuality === 'low') {
         console.warn('[StableGuard] Low data quality detected');
       }
 
       // 2. 特征工程
+      const featureStart = Date.now();
       const featureOutput = await featureAgent.calculateFeatures(dataOutput.signals);
+      metrics.featureAgent = {
+        duration: Date.now() - featureStart,
+        dataPoints: featureOutput.snapshots.length * 6 // 6 features per stablecoin
+      };
 
       // 3. 风险研判
+      const riskStart = Date.now();
       const riskOutput = await riskAgent.analyzeRisk(featureOutput.snapshots);
+      metrics.riskAgent = {
+        duration: Date.now() - riskStart,
+        dataPoints: riskOutput.reports.length
+      };
 
       // 4. 策略生成
+      const strategyStart = Date.now();
       const strategyOutput = await strategyAgent.generateStrategies(
         riskOutput.reports,
         this.config.strictMode
       );
+      metrics.strategyAgent = {
+        duration: Date.now() - strategyStart,
+        dataPoints: strategyOutput.bundles.length
+      };
 
       // 5. 存储结果
-      await this.storeAssessmentResults(riskOutput.reports, strategyOutput.bundles);
+      const executionStart = Date.now();
+      await this.storeAssessmentResults(riskOutput.reports, strategyOutput.bundles, dataOutput.signals);
+      metrics.executionAgent = {
+        duration: Date.now() - executionStart,
+        dataPoints: riskOutput.reports.length
+      };
+
+      // 存储性能指标
+      await chrome.storage.local.set({
+        stableguard_metrics: metrics,
+        stableguard_metrics_timestamp: Date.now()
+      });
 
       const duration = Date.now() - startTime;
       console.log(`[StableGuard] Assessment completed in ${duration}ms`);
+      console.log('[StableGuard] Metrics:', metrics);
 
       // 返回简化结果
       const stablecoins = riskOutput.reports.map(report => ({
@@ -249,7 +283,7 @@ export class StableGuard {
   /**
    * 存储评估结果
    */
-  private async storeAssessmentResults(reports: any[], bundles: any[]): Promise<void> {
+  private async storeAssessmentResults(reports: any[], bundles: any[], signals?: any[]): Promise<void> {
     try {
       const data: Record<string, any> = {};
 
@@ -257,6 +291,13 @@ export class StableGuard {
       for (let i = 0; i < reports.length; i++) {
         const report = reports[i];
         const bundle = bundles[i];
+        
+        // 添加当前价格数据（用于价格图表）
+        const signal = signals?.find(s => s.stablecoinId === report.stablecoinId);
+        if (signal) {
+          report.currentPrice = signal.price;
+          report.priceChange24h = signal.priceChange24h;
+        }
         
         data[`stableguard_risk_${report.stablecoinId}`] = report;
         data[`stableguard_strategy_${report.stablecoinId}`] = bundle;

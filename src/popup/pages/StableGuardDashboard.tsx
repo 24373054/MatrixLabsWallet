@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, RefreshCw, Shield, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { getStableGuard, RiskLevel, DISPLAY_CONFIG } from '../../lib/stableguard';
 import { AgentVisualization } from '../components/AgentVisualization';
+import { PriceChart } from '../components/PriceChart';
 
 interface StablecoinRiskData {
   id: string;
@@ -186,6 +187,19 @@ export function StableGuardDashboard({ onBack }: StableGuardDashboardProps) {
         {!loading && stablecoins.length > 0 && (
           <div className="p-4 bg-matrix-surface border border-matrix-border rounded-lg">
             <AgentVisualization stablecoinId="usdt" />
+          </div>
+        )}
+
+        {/* Price Charts */}
+        {!loading && stablecoins.length > 0 && (
+          <div className="grid grid-cols-1 gap-4">
+            {stablecoins.slice(0, 3).map((coin) => (
+              <PriceChart 
+                key={coin.id}
+                stablecoinId={coin.id} 
+                symbol={coin.symbol}
+              />
+            ))}
           </div>
         )}
 
