@@ -652,7 +652,7 @@ async function handleRPCCall(data: any, sendResponse: (response: any) => void) {
 // Keep service worker alive and run StableGuard periodic assessment
 if (chrome.alarms) {
   chrome.alarms.create('keepAlive', { periodInMinutes: 1 });
-  chrome.alarms.create('stableGuardAssessment', { periodInMinutes: 5 }); // Every 5 minutes
+  chrome.alarms.create('stableGuardAssessment', { periodInMinutes: 1 }); // Every 1 minute for testing
   
   chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === 'keepAlive') {
