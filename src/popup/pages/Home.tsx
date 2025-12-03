@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NetworkSelector } from '../../components/NetworkSelector';
-import { Send, ArrowDownToLine, Copy, Check, Settings } from 'lucide-react';
+import { Send, ArrowDownToLine, ArrowLeftRight, GitBranch, TrendingUp, Copy, Check, Settings } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { ProviderService } from '../../lib/provider';
 import { StableGuardBadge } from '../components/StableGuardBadge';
@@ -10,7 +10,7 @@ import { RiskLevel } from '../../lib/stableguard';
 import { TokenService, TokenBalance } from '../../lib/tokenService';
 
 interface HomeProps {
-  onNavigate?: (page: 'send' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
+  onNavigate?: (page: 'send' | 'swap' | 'bridge' | 'staking' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
@@ -153,47 +153,92 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </div>
 
       {/* Balance */}
-      <div className="px-6 py-8">
+      <div className="px-6 py-5">
         <div className="text-center">
-          <p className="text-sm text-matrix-text-secondary mb-2">总余额</p>
+          <p className="text-xs text-matrix-text-secondary mb-1.5">总余额</p>
           {loading ? (
             <div className="flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-matrix-accent-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <>
-              <h1 className="text-4xl font-bold text-matrix-text-primary mb-1">
+              <h1 className="text-3xl font-bold text-matrix-text-primary mb-0.5">
                 {parseFloat(balance).toFixed(4)}
               </h1>
-              <p className="text-sm text-matrix-text-muted">{currentNetwork?.symbol}</p>
+              <p className="text-xs text-matrix-text-muted">{currentNetwork?.symbol}</p>
             </>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 mt-6">
+        <div className="grid grid-cols-2 gap-2 mt-4">
           <Button 
             variant="primary" 
             fullWidth 
-            className="flex items-center justify-center gap-2"
+            className="flex flex-col items-center justify-center gap-1 py-3"
             onClick={() => onNavigate?.('send')}
           >
             <Send size={18} />
-            发送
+            <span className="text-xs">发送</span>
           </Button>
           <Button 
             variant="secondary" 
             fullWidth 
-            className="flex items-center justify-center gap-2"
+            className="flex flex-col items-center justify-center gap-1 py-3"
             onClick={() => onNavigate?.('receive')}
           >
             <ArrowDownToLine size={18} />
-            接收
+            <span className="text-xs">接收</span>
+          </Button>
+          <Button 
+            variant="secondary" 
+            fullWidth 
+            className="flex flex-col items-center justify-center gap-1 py-3"
+            onClick={() => onNavigate?.('swap')}
+          >
+            <ArrowLeftRight size={18} />
+            <span className="text-xs">兑换</span>
+          </Button>
+          <Button 
+            variant="secondary" 
+            fullWidth 
+            className="flex flex-col items-center justify-center gap-1 py-3"
+            onClick={() => onNavigate?.('bridge')}
+          >
+            <GitBranch size={18} />
+            <span className="text-xs">跨链</span>
           </Button>
         </div>
 
+        {/* DeFi / Staking Card */}
+        <Card 
+          hover 
+          className="mt-3 cursor-pointer bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/20"
+          onClick={() => onNavigate?.('staking')}
+        >
+          <div className="flex items-center justify-between p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-green-500/20 rounded-full flex items-center justify-center">
+                <TrendingUp size={18} className="text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-matrix-text-primary">
+                  质押 & DeFi
+                </h3>
+                <p className="text-xs text-matrix-text-muted">
+                  让您的资产增值
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-green-400 font-semibold">APY 3-30%</p>
+              <p className="text-xs text-matrix-text-muted">查看机会</p>
+            </div>
+          </div>
+        </Card>
+
         {/* StableGuard Badge */}
-        <div className="mt-4">
+        <div className="mt-3">
           <StableGuardBadge
             overallRisk={overallRisk}
             highRiskCount={highRiskCount}

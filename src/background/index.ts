@@ -352,7 +352,11 @@ async function handleTransactionApproved(sendResponse: (response: any) => void) 
     console.log('[Background] Wallet derived, connecting to provider...');
 
     // Connect wallet to provider
-    const provider = await RPCService.getProvider(transaction.chainId);
+    // Convert chainId from hex string to number if needed
+    const chainId = typeof transaction.chainId === 'string' 
+      ? parseInt(transaction.chainId, 16) 
+      : transaction.chainId;
+    const provider = await RPCService.getProvider(chainId);
     const connectedWallet = wallet.connect(provider);
 
     console.log('[Background] Wallet connected, signing and sending transaction...');
@@ -652,7 +656,7 @@ async function handleRPCCall(data: any, sendResponse: (response: any) => void) {
 // Keep service worker alive and run StableGuard periodic assessment
 if (chrome.alarms) {
   chrome.alarms.create('keepAlive', { periodInMinutes: 1 });
-  chrome.alarms.create('stableGuardAssessment', { periodInMinutes: 5 }); // Every 5 minutes
+  chrome.alarms.create('stableGuardAssessment', { periodInMinutes: 1 }); // Every 1 minute for testing
   
   chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === 'keepAlive') {
