@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, RefreshCw, Shield, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { getStableGuard, RiskLevel, DISPLAY_CONFIG } from '../../lib/stableguard';
+import { AgentVisualization } from '../components/AgentVisualization';
 
 interface StablecoinRiskData {
   id: string;
@@ -180,6 +181,13 @@ export function StableGuardDashboard({ onBack }: StableGuardDashboardProps) {
         <div className="text-xs text-matrix-text-secondary text-center">
           最后更新: {formatTime(lastUpdate)}
         </div>
+
+        {/* Agent Visualization Panel */}
+        {!loading && stablecoins.length > 0 && (
+          <div className="p-4 bg-matrix-surface border border-matrix-border rounded-lg">
+            <AgentVisualization stablecoinId="usdt" />
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
