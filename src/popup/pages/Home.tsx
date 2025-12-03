@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NetworkSelector } from '../../components/NetworkSelector';
-import { Send, ArrowDownToLine, ArrowLeftRight, GitBranch, Copy, Check, Settings } from 'lucide-react';
+import { Send, ArrowDownToLine, ArrowLeftRight, GitBranch, TrendingUp, Copy, Check, Settings } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { ProviderService } from '../../lib/provider';
 import { StableGuardBadge } from '../components/StableGuardBadge';
@@ -10,7 +10,7 @@ import { RiskLevel } from '../../lib/stableguard';
 import { TokenService, TokenBalance } from '../../lib/tokenService';
 
 interface HomeProps {
-  onNavigate?: (page: 'send' | 'swap' | 'bridge' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
+  onNavigate?: (page: 'send' | 'swap' | 'bridge' | 'staking' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
@@ -266,6 +266,33 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <p className="text-sm text-matrix-text-muted">暂无资产</p>
           </div>
         )}
+
+        {/* DeFi / Staking Card */}
+        <Card 
+          hover 
+          className="mt-4 cursor-pointer bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/20"
+          onClick={() => onNavigate?.('staking')}
+        >
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
+                <TrendingUp size={20} className="text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-matrix-text-primary">
+                  质押 & DeFi
+                </h3>
+                <p className="text-xs text-matrix-text-muted">
+                  让您的资产增值
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-green-400 font-semibold">APY 3-30%</p>
+              <p className="text-xs text-matrix-text-muted">查看机会</p>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
