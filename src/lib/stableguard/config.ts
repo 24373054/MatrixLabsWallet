@@ -117,6 +117,16 @@ export const DEFAULT_STABLEGUARD_CONFIG: StableGuardConfig = {
   }
 };
 
+// 开发/测试配置 - 禁用外部 API 调用
+export const OFFLINE_STABLEGUARD_CONFIG: StableGuardConfig = {
+  ...DEFAULT_STABLEGUARD_CONFIG,
+  dataSources: {
+    priceAPI: '',  // 空字符串表示不调用 API
+    chainRPC: 'default',
+    ragEndpoint: undefined
+  }
+};
+
 // ============================================================================
 // Risk Level Thresholds
 // ============================================================================

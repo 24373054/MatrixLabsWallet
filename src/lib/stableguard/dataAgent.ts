@@ -133,7 +133,8 @@ export class DataAgent {
       const response = await fetch(`${baseUrl}${API_ENDPOINTS.COINGECKO_PRICE}?${params}`, {
         headers: {
           'Accept': 'application/json'
-        }
+        },
+        mode: 'cors'
       });
 
       if (!response.ok) {
@@ -164,16 +165,22 @@ export class DataAgent {
       return priceData;
 
     } catch (error: any) {
-      console.error(`[DataAgent] Price fetch failed for ${stablecoinId}:`, error);
+      console.warn(`[DataAgent] Price fetch failed for ${stablecoinId}:`, error.message);
       
       // 尝试使用缓存
       const cached = this.priceCache.get(stablecoinId);
       if (cached) {
-        console.log(`[DataAgent] Falling back to stale cache for ${stablecoinId}`);
-        return { price: cached.price };
+        console.log(`[DataAgent] Using stale cache for ${stablecoinId}`);
+        return { 
+          price: cached.price,
+          priceChange24h: 0,
+          volume24h: 0,
+          marketCap: 0
+        };
       }
       
-      // 返回默认值（锚定价格）
+      // 返回默认值（锚定价格）- 这样不会阻止评估继续
+      console.log(`[DataAgent] Using default price (1.0) for ${stablecoinId}`);
       return {
         price: 1.0,
         priceChange24h: 0,
