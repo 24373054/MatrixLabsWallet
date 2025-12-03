@@ -222,21 +222,38 @@ export class HistoryService {
     provider: any
   ): Promise<void> {
     try {
+      console.log('[HistoryService] Fetching transaction receipt:', hash);
       const receipt = await provider.getTransactionReceipt(hash);
+      
       if (receipt) {
+        console.log('[HistoryService] Receipt found:', {
+          status: receipt.status,
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed?.toString(),
+        });
+
         const updates: Partial<TransactionRecord> = {
           status: receipt.status === 1 ? TransactionStatus.CONFIRMED : TransactionStatus.FAILED,
           blockNumber: receipt.blockNumber,
           gasUsed: receipt.gasUsed?.toString(),
         };
 
-        // 计算手续费
-        if (receipt.gasUsed && receipt.gasPrice) {
-          const fee = receipt.gasUsed * receipt.gasPrice;
-          updates.fee = fee.toString();
+        // 计算手续费 - 需要获取交易详情来得到 gasPrice
+        try {
+          const tx = await provider.getTransaction(hash);
+          if (tx && receipt.gasUsed && tx.gasPrice) {
+            const fee = receipt.gasUsed * tx.gasPrice;
+            updates.fee = fee.toString();
+            console.log('[HistoryService] Fee calculated:', fee.toString());
+          }
+        } catch (feeError) {
+          console.warn('[HistoryService] Failed to calculate fee:', feeError);
         }
 
         await this.updateTransactionStatus(hash, updates.status!, updates);
+        console.log('[HistoryService] Transaction updated:', hash, updates.status);
+      } else {
+        console.log('[HistoryService] Receipt not found yet for:', hash);
       }
     } catch (error) {
       console.error('[HistoryService] Failed to fetch transaction:', error);

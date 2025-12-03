@@ -17,6 +17,8 @@ import {
   XCircle,
   Filter,
   Trash2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { 
@@ -39,11 +41,26 @@ export const History: React.FC<HistoryProps> = ({ onBack }) => {
   const [filterStatus, setFilterStatus] = useState<'all' | TransactionStatus>('all');
   const [selectedTx, setSelectedTx] = useState<TransactionRecord | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [copiedFrom, setCopiedFrom] = useState(false);
+  const [copiedTo, setCopiedTo] = useState(false);
+  const [copiedHash, setCopiedHash] = useState(false);
 
   // 加载交易历史
   useEffect(() => {
     loadHistory();
   }, [currentAccount]);
+
+  // 自动刷新待确认的交易
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const hasPending = transactions.some(tx => tx.status === TransactionStatus.PENDING);
+      if (hasPending) {
+        loadHistory();
+      }
+    }, 5000); // 每5秒刷新一次
+
+    return () => clearInterval(interval);
+  }, [transactions]);
 
   const loadHistory = async () => {
     if (!currentAccount) return;
@@ -129,6 +146,20 @@ export const History: React.FC<HistoryProps> = ({ onBack }) => {
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleCopyAddress = async (address: string, type: 'from' | 'to' | 'hash') => {
+    await navigator.clipboard.writeText(address);
+    if (type === 'from') {
+      setCopiedFrom(true);
+      setTimeout(() => setCopiedFrom(false), 2000);
+    } else if (type === 'to') {
+      setCopiedTo(true);
+      setTimeout(() => setCopiedTo(false), 2000);
+    } else {
+      setCopiedHash(true);
+      setTimeout(() => setCopiedHash(false), 2000);
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -258,18 +289,42 @@ export const History: React.FC<HistoryProps> = ({ onBack }) => {
             {/* Addresses */}
             <Card className="p-4">
               <h3 className="text-sm font-semibold text-matrix-text-primary mb-3">地址</h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div>
                   <span className="text-xs text-matrix-text-muted">从</span>
-                  <p className="text-sm font-mono text-matrix-text-primary mt-1">
-                    {selectedTx.from}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-mono text-matrix-text-primary">
+                      {formatAddress(selectedTx.from)}
+                    </span>
+                    <button
+                      onClick={() => handleCopyAddress(selectedTx.from, 'from')}
+                      className="p-1 hover:bg-matrix-surface/50 rounded transition-smooth"
+                    >
+                      {copiedFrom ? (
+                        <Check size={14} className="text-matrix-accent-secondary" />
+                      ) : (
+                        <Copy size={14} className="text-matrix-text-muted" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <span className="text-xs text-matrix-text-muted">到</span>
-                  <p className="text-sm font-mono text-matrix-text-primary mt-1">
-                    {selectedTx.to}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-mono text-matrix-text-primary">
+                      {formatAddress(selectedTx.to)}
+                    </span>
+                    <button
+                      onClick={() => handleCopyAddress(selectedTx.to, 'to')}
+                      className="p-1 hover:bg-matrix-surface/50 rounded transition-smooth"
+                    >
+                      {copiedTo ? (
+                        <Check size={14} className="text-matrix-accent-secondary" />
+                      ) : (
+                        <Copy size={14} className="text-matrix-text-muted" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -298,9 +353,21 @@ export const History: React.FC<HistoryProps> = ({ onBack }) => {
                 )}
                 <div>
                   <span className="text-xs text-matrix-text-muted">交易哈希</span>
-                  <p className="text-xs font-mono text-matrix-text-primary mt-1 break-all">
-                    {selectedTx.hash}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-mono text-matrix-text-primary">
+                      {formatAddress(selectedTx.hash)}
+                    </span>
+                    <button
+                      onClick={() => handleCopyAddress(selectedTx.hash, 'hash')}
+                      className="p-1 hover:bg-matrix-surface/50 rounded transition-smooth"
+                    >
+                      {copiedHash ? (
+                        <Check size={14} className="text-matrix-accent-secondary" />
+                      ) : (
+                        <Copy size={14} className="text-matrix-text-muted" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </Card>
