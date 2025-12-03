@@ -9,6 +9,7 @@ import { ProviderService } from '../../lib/provider';
 import { ethers } from 'ethers';
 import { TokenService, TokenBalance } from '../../lib/tokenService';
 import { Token } from '../../lib/tokens';
+import { PriceChart } from '../components/PriceChart';
 
 interface SendProps {
   onBack: () => void;
@@ -25,6 +26,15 @@ export const Send: React.FC<SendProps> = ({ onBack }) => {
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
   const [showTokenSelector, setShowTokenSelector] = useState(false);
+
+  const getStablecoinId = (token: Token | null): string | null => {
+    if (!token) return null;
+    const symbol = token.symbol.toLowerCase();
+    if (symbol === 'usdt' || symbol === 'usdc' || symbol === 'dai') {
+      return symbol;
+    }
+    return null;
+  };
 
   // Load token balances on mount
   useEffect(() => {
@@ -274,6 +284,16 @@ export const Send: React.FC<SendProps> = ({ onBack }) => {
               </Card>
             )}
           </div>
+
+          {(() => {
+            const stablecoinId = getStablecoinId(selectedToken);
+            if (!stablecoinId || !selectedToken) return null;
+            return (
+              <div className="mt-2">
+                <PriceChart stablecoinId={stablecoinId} symbol={selectedToken.symbol} />
+              </div>
+            );
+          })()}
 
           <Input
             label="接收地址"
