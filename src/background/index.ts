@@ -352,7 +352,11 @@ async function handleTransactionApproved(sendResponse: (response: any) => void) 
     console.log('[Background] Wallet derived, connecting to provider...');
 
     // Connect wallet to provider
-    const provider = await RPCService.getProvider(transaction.chainId);
+    // Convert chainId from hex string to number if needed
+    const chainId = typeof transaction.chainId === 'string' 
+      ? parseInt(transaction.chainId, 16) 
+      : transaction.chainId;
+    const provider = await RPCService.getProvider(chainId);
     const connectedWallet = wallet.connect(provider);
 
     console.log('[Background] Wallet connected, signing and sending transaction...');
