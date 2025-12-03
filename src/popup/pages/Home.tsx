@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NetworkSelector } from '../../components/NetworkSelector';
-import { Send, ArrowDownToLine, Copy, Check, Settings } from 'lucide-react';
+import { Send, ArrowDownToLine, ArrowLeftRight, Copy, Check, Settings } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { ProviderService } from '../../lib/provider';
 import { StableGuardBadge } from '../components/StableGuardBadge';
@@ -10,7 +10,7 @@ import { RiskLevel } from '../../lib/stableguard';
 import { TokenService, TokenBalance } from '../../lib/tokenService';
 
 interface HomeProps {
-  onNavigate?: (page: 'send' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
+  onNavigate?: (page: 'send' | 'swap' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
@@ -171,24 +171,33 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 mt-6">
+        <div className="grid grid-cols-3 gap-2 mt-6">
           <Button 
             variant="primary" 
             fullWidth 
-            className="flex items-center justify-center gap-2"
+            className="flex flex-col items-center justify-center gap-1 py-3"
             onClick={() => onNavigate?.('send')}
           >
             <Send size={18} />
-            发送
+            <span className="text-xs">发送</span>
           </Button>
           <Button 
             variant="secondary" 
             fullWidth 
-            className="flex items-center justify-center gap-2"
+            className="flex flex-col items-center justify-center gap-1 py-3"
+            onClick={() => onNavigate?.('swap')}
+          >
+            <ArrowLeftRight size={18} />
+            <span className="text-xs">兑换</span>
+          </Button>
+          <Button 
+            variant="secondary" 
+            fullWidth 
+            className="flex flex-col items-center justify-center gap-1 py-3"
             onClick={() => onNavigate?.('receive')}
           >
             <ArrowDownToLine size={18} />
-            接收
+            <span className="text-xs">接收</span>
           </Button>
         </div>
 
