@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 import { ProviderService } from './provider';
 import { Token } from './tokens';
 import type { Network } from './storage';
+import { HistoryService, TransactionType } from './historyService';
 
 // Uniswap V2 Router 地址 (各链通用或主要 DEX)
 const ROUTER_ADDRESSES: Record<number, string> = {
@@ -200,7 +201,33 @@ export class SwapService {
       );
     }
 
-    await tx.wait();
+    console.log('[SwapService] Transaction sent:', tx.hash);
+
+    // Save swap transaction to history
+    const historyRecord = HistoryService.createRecord({
+      hash: tx.hash,
+      type: TransactionType.SWAP,
+      chainId: network.chainId,
+      chainName: network.name,
+      from: wallet.address,
+      to: routerAddress,
+      value: params.tokenIn.isNative ? amountInWei.toString() : '0',
+      swapFromToken: params.tokenIn.symbol,
+      swapToToken: params.tokenOut.symbol,
+      swapFromAmount: params.amountIn,
+      swapToAmount: quote.amountOut,
+    });
+    await HistoryService.saveTransaction(historyRecord);
+    console.log('[SwapService] Transaction saved to history');
+
+    // Wait for confirmation
+    const receipt = await tx.wait();
+    console.log('[SwapService] Transaction confirmed:', receipt.hash);
+
+    // Update transaction status
+    await HistoryService.fetchAndUpdateTransaction(tx.hash, provider);
+    console.log('[SwapService] Transaction status updated');
+
     return tx.hash;
   }
 

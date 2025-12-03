@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import { ArrowLeft, Lock, Globe, Trash2, AlertCircle, Shield } from 'lucide-react';
+import { ArrowLeft, Lock, Globe, Trash2, AlertCircle, Shield, History } from 'lucide-react';
 import { WalletService } from '../../lib/wallet';
 import { StorageService } from '../../lib/storage';
 
 interface SettingsProps {
   onBack: () => void;
   onLock: () => void;
-  onNavigate?: (page: 'network-settings' | 'stableguard-settings') => void;
+  onNavigate?: (page: 'network-settings' | 'stableguard-settings' | 'history') => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({ onBack, onLock, onNavigate }) => {
@@ -52,6 +52,23 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, onLock, onNavigate }
                 </h3>
                 <p className="text-xs text-matrix-text-muted">
                   需要密码才能重新访问
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Transaction History */}
+          <Card hover onClick={() => onNavigate?.('history')} className="cursor-pointer">
+            <div className="flex items-center gap-3 p-4">
+              <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+                <History size={20} className="text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-matrix-text-primary">
+                  交易历史
+                </h3>
+                <p className="text-xs text-matrix-text-muted">
+                  查看所有交易记录
                 </p>
               </div>
             </div>

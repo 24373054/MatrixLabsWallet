@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NetworkSelector } from '../../components/NetworkSelector';
-import { Send, ArrowDownToLine, ArrowLeftRight, GitBranch, TrendingUp, Copy, Check, Settings } from 'lucide-react';
+import { Send, ArrowDownToLine, ArrowLeftRight, GitBranch, TrendingUp, History as HistoryIcon, Copy, Check, Settings } from 'lucide-react';
 import { useWalletStore } from '../../store/wallet';
 import { ProviderService } from '../../lib/provider';
 import { StableGuardBadge } from '../components/StableGuardBadge';
@@ -10,7 +10,7 @@ import { RiskLevel } from '../../lib/stableguard';
 import { TokenService, TokenBalance } from '../../lib/tokenService';
 
 interface HomeProps {
-  onNavigate?: (page: 'send' | 'swap' | 'bridge' | 'staking' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
+  onNavigate?: (page: 'send' | 'swap' | 'bridge' | 'staking' | 'history' | 'receive' | 'settings' | 'stableguard-dashboard') => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
@@ -111,8 +111,8 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
   return (
     <div className="flex flex-col h-full bg-matrix-bg">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-matrix-border">
+      {/* Header - Fixed */}
+      <div className="px-4 py-4 border-b border-matrix-border flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <NetworkSelector onNetworkChange={loadBalance} />
           
@@ -152,8 +152,10 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Balance */}
-      <div className="px-6 py-5">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Balance */}
+        <div className="px-6 py-5">
         <div className="text-center">
           <p className="text-xs text-matrix-text-secondary mb-1.5">总余额</p>
           {loading ? (
@@ -247,52 +249,53 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Assets */}
-      <div className="flex-1 px-4 pb-4 overflow-y-auto">
-        <div className="mb-3">
-          <h3 className="text-sm font-medium text-matrix-text-secondary px-2">资产</h3>
-        </div>
-
-        {/* Token List */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-2 border-matrix-accent-primary border-t-transparent rounded-full animate-spin" />
+        {/* Assets */}
+        <div className="px-4 pb-4">
+          <div className="mb-3">
+            <h3 className="text-sm font-medium text-matrix-text-secondary px-2">资产</h3>
           </div>
-        ) : tokenBalances.length > 0 ? (
-          tokenBalances.map((tokenBalance) => (
-            <Card key={tokenBalance.token.address} hover className="mb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-bold text-matrix-text-primary">
-                      {tokenBalance.token.symbol.charAt(0)}
-                    </span>
+
+          {/* Token List */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-2 border-matrix-accent-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : tokenBalances.length > 0 ? (
+            tokenBalances.map((tokenBalance) => (
+              <Card key={tokenBalance.token.address} hover className="mb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-bold text-matrix-text-primary">
+                        {tokenBalance.token.symbol.charAt(0)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-matrix-text-primary">
+                        {tokenBalance.token.symbol}
+                      </p>
+                      <p className="text-xs text-matrix-text-muted">
+                        {tokenBalance.token.name}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-matrix-text-primary">
-                      {tokenBalance.token.symbol}
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-matrix-text-primary">
+                      {parseFloat(tokenBalance.balance).toFixed(4)}
                     </p>
                     <p className="text-xs text-matrix-text-muted">
-                      {tokenBalance.token.name}
+                      {tokenBalance.token.symbol}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-matrix-text-primary">
-                    {parseFloat(tokenBalance.balance).toFixed(4)}
-                  </p>
-                  <p className="text-xs text-matrix-text-muted">
-                    {tokenBalance.token.symbol}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-sm text-matrix-text-muted">暂无资产</p>
-          </div>
-        )}
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-sm text-matrix-text-muted">暂无资产</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

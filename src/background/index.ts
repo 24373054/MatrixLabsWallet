@@ -3,6 +3,7 @@ import { ethers } from 'ethers';
 import { CryptoService } from '../lib/crypto';
 import { RPCService } from '../lib/rpc';
 import { getStableGuard } from '../lib/stableguard';
+import { HistoryService, TransactionType } from '../lib/historyService';
 
 // Ensure chrome API is available
 if (typeof chrome === 'undefined') {
@@ -365,9 +366,32 @@ async function handleTransactionApproved(sendResponse: (response: any) => void) 
     const tx = await connectedWallet.sendTransaction(transaction);
     console.log('[Background] Transaction sent:', tx.hash);
 
+    // Get network info for history
+    const networkResult = await chrome.storage.local.get(['networks']);
+    const networks = networkResult.networks || [];
+    const network = networks.find((n: any) => n.chainId === chainId);
+
+    // Save transaction to history
+    const historyRecord = HistoryService.createRecord({
+      hash: tx.hash,
+      type: TransactionType.SEND,
+      chainId: chainId,
+      chainName: network?.name || 'Unknown',
+      from: currentAccount.address,
+      to: transaction.to,
+      value: transaction.value || '0',
+      tokenSymbol: transaction.tokenSymbol,
+      tokenAmount: transaction.tokenAmount,
+      tokenAddress: transaction.tokenAddress,
+    });
+    await HistoryService.saveTransaction(historyRecord);
+
     // Wait for transaction to be mined
     const receipt = await tx.wait();
     console.log('[Background] Transaction mined:', receipt);
+
+    // Update transaction status in history
+    await HistoryService.fetchAndUpdateTransaction(tx.hash, provider);
 
     // Clear pending transaction
     await chrome.storage.local.remove(['pendingTransaction']);

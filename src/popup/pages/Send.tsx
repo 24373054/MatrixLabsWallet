@@ -10,6 +10,7 @@ import { ethers } from 'ethers';
 import { TokenService, TokenBalance } from '../../lib/tokenService';
 import { Token } from '../../lib/tokens';
 import { PriceChart } from '../components/PriceChart';
+import { HistoryService, TransactionType } from '../../lib/historyService';
 
 interface SendProps {
   onBack: () => void;
@@ -127,6 +128,29 @@ export const Send: React.FC<SendProps> = ({ onBack }) => {
       // Sign and send transaction
       const signedTx = await WalletService.signTransaction(tx);
       const response = await ProviderService.sendTransaction(signedTx, currentNetwork);
+
+      // Save to history
+      const historyRecord = HistoryService.createRecord({
+        hash: response.hash,
+        type: TransactionType.SEND,
+        chainId: currentNetwork.chainId,
+        chainName: currentNetwork.name,
+        from: currentAccount!.address,
+        to: recipient,
+        value: selectedToken?.isNative ? amount : '0',
+        tokenSymbol: selectedToken?.symbol,
+        tokenAmount: !selectedToken?.isNative ? amount : undefined,
+        tokenAddress: !selectedToken?.isNative ? selectedToken?.address : undefined,
+      });
+      await HistoryService.saveTransaction(historyRecord);
+      console.log('[Send] Transaction saved to history:', response.hash);
+
+      // Wait for confirmation and update status
+      const provider = ProviderService.getProvider(currentNetwork);
+      setTimeout(async () => {
+        await HistoryService.fetchAndUpdateTransaction(response.hash, provider);
+        console.log('[Send] Transaction status updated');
+      }, 3000); // Wait 3 seconds before checking
 
       setTxHash(response.hash);
       setSuccess(true);
