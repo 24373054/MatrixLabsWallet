@@ -132,6 +132,14 @@ export class RPCService {
   }
 
   /**
+   * Get transaction by hash
+   */
+  static async getTransaction(txHash: string, chainId?: number) {
+    const provider = await this.getProvider(chainId);
+    return await provider.getTransaction(txHash);
+  }
+
+  /**
    * Clear cached providers
    */
   static clearProviders() {

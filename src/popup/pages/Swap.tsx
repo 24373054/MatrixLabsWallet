@@ -271,7 +271,7 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
           {showSettings && (
             <Card className="p-4 space-y-3">
               <div>
-                <label className="text-sm font-medium text-matrix-text-secondary mb-2 block">
+                <label className="text-sm font-medium text-matrix-text-primary mb-2 block">
                   滑点容忍度 (%)
                 </label>
                 <div className="flex gap-2">
@@ -282,7 +282,7 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
                       className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-smooth ${
                         slippage === val
                           ? 'bg-matrix-accent-primary text-white'
-                          : 'bg-matrix-surface text-matrix-text-secondary hover:bg-matrix-surface/80'
+                          : 'bg-matrix-surface text-matrix-text-primary hover:bg-matrix-surface/80'
                       }`}
                     >
                       {val}%
@@ -298,7 +298,7 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-matrix-text-secondary mb-2 block">
+                <label className="text-sm font-medium text-matrix-text-primary mb-2 block">
                   交易截止时间 (分钟)
                 </label>
                 <Input
@@ -313,7 +313,7 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
 
           {/* Token In */}
           <Card className="p-4">
-            <label className="text-sm font-medium text-matrix-text-secondary mb-2 block">卖出</label>
+            <label className="text-sm font-medium text-matrix-text-primary mb-2 block">卖出</label>
             <button
               onClick={() => setShowTokenInSelector(!showTokenInSelector)}
               className="w-full p-3 bg-matrix-surface border border-matrix-border rounded-lg hover:border-matrix-accent-primary/50 transition-smooth mb-3"
@@ -321,9 +321,9 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold">{tokenIn?.symbol.charAt(0) || '?'}</span>
+                    <span className="text-xs font-bold text-matrix-text-primary">{tokenIn?.symbol.charAt(0) || '?'}</span>
                   </div>
-                  <span className="text-sm font-medium">{tokenIn?.symbol || '选择代币'}</span>
+                  <span className="text-sm font-medium text-matrix-text-primary">{tokenIn?.symbol || '选择代币'}</span>
                 </div>
               </div>
             </button>
@@ -340,8 +340,8 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
                     className="w-full p-2 hover:bg-matrix-surface/50 transition-smooth text-left border-b border-matrix-border last:border-b-0"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{tb.token.symbol}</span>
-                      <span className="text-xs text-matrix-text-muted">{parseFloat(tb.balance).toFixed(4)}</span>
+                      <span className="text-sm font-medium text-matrix-text-primary">{tb.token.symbol}</span>
+                      <span className="text-xs text-matrix-text-secondary">{parseFloat(tb.balance).toFixed(4)}</span>
                     </div>
                   </button>
                 ))}
@@ -364,7 +364,7 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
               </button>
             </div>
             {tokenIn && (
-              <p className="text-xs text-matrix-text-muted mt-1">
+              <p className="text-xs text-matrix-text-secondary mt-1">
                 余额: {tokenBalances.find(b => b.token.address === tokenIn.address)?.balance || '0'} {tokenIn.symbol}
               </p>
             )}
@@ -382,7 +382,7 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
 
           {/* Token Out */}
           <Card className="p-4">
-            <label className="text-sm font-medium text-matrix-text-secondary mb-2 block">买入</label>
+            <label className="text-sm font-medium text-matrix-text-primary mb-2 block">买入</label>
             <button
               onClick={() => setShowTokenOutSelector(!showTokenOutSelector)}
               className="w-full p-3 bg-matrix-surface border border-matrix-border rounded-lg hover:border-matrix-accent-primary/50 transition-smooth mb-3"
@@ -390,9 +390,9 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-gradient-to-br from-matrix-accent-primary/20 to-matrix-accent-secondary/20 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-bold">{tokenOut?.symbol.charAt(0) || '?'}</span>
+                    <span className="text-xs font-bold text-matrix-text-primary">{tokenOut?.symbol.charAt(0) || '?'}</span>
                   </div>
-                  <span className="text-sm font-medium">{tokenOut?.symbol || '选择代币'}</span>
+                  <span className="text-sm font-medium text-matrix-text-primary">{tokenOut?.symbol || '选择代币'}</span>
                 </div>
               </div>
             </button>
@@ -409,8 +409,8 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
                     className="w-full p-2 hover:bg-matrix-surface/50 transition-smooth text-left border-b border-matrix-border last:border-b-0"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{tb.token.symbol}</span>
-                      <span className="text-xs text-matrix-text-muted">{parseFloat(tb.balance).toFixed(4)}</span>
+                      <span className="text-sm font-medium text-matrix-text-primary">{tb.token.symbol}</span>
+                      <span className="text-xs text-matrix-text-secondary">{parseFloat(tb.balance).toFixed(4)}</span>
                     </div>
                   </button>
                 ))}
@@ -437,17 +437,17 @@ export const Swap: React.FC<SwapProps> = ({ onBack }) => {
           {quote && (
             <Card className="p-3 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-matrix-text-muted">汇率</span>
-                <span className="text-matrix-text-secondary">
+                <span className="text-matrix-text-secondary">汇率</span>
+                <span className="text-matrix-text-primary">
                   1 {tokenIn?.symbol} = {quote.exchangeRate} {tokenOut?.symbol}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-matrix-text-muted">最小接收</span>
-                <span className="text-matrix-text-secondary">{parseFloat(quote.amountOutMin).toFixed(6)} {tokenOut?.symbol}</span>
+                <span className="text-matrix-text-secondary">最小接收</span>
+                <span className="text-matrix-text-primary">{parseFloat(quote.amountOutMin).toFixed(6)} {tokenOut?.symbol}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-matrix-text-muted">价格影响</span>
+                <span className="text-matrix-text-secondary">价格影响</span>
                 <span className={`${quote.priceImpact > 5 ? 'text-red-500' : 'text-green-500'}`}>
                   ~{quote.priceImpact.toFixed(2)}%
                 </span>

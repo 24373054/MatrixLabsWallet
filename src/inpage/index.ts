@@ -96,6 +96,7 @@ class MatrixLabsProvider extends EventEmitter {
       case 'eth_getTransactionCount':
       case 'eth_call':
       case 'eth_getTransactionReceipt':
+      case 'eth_getTransactionByHash':
       case 'eth_getCode':
       case 'eth_getLogs':
         return this._handleRPCCall(method, params);
@@ -156,26 +157,30 @@ class MatrixLabsProvider extends EventEmitter {
     const chainId = Array.isArray(params) ? params[0]?.chainId : params?.chainId;
     console.log('[Inpage] Switch chain request:', chainId);
     
-    // For now, just update the chainId and return success
-    // In a real implementation, this would communicate with the wallet
-    if (chainId) {
+    // Send to background for actual network switching
+    const response = await this._sendMessage('SWITCH_CHAIN', { chainId });
+    if (response.success) {
       this._chainId = chainId;
       this.emit('chainChanged', chainId);
+      return null;
     }
-    return null;
+    throw new Error(response.error || 'Failed to switch chain');
   }
 
   private async _handleAddChain(params: any): Promise<null> {
     const chainParams = Array.isArray(params) ? params[0] : params;
     console.log('[Inpage] Add chain request:', chainParams);
     
-    // For now, just accept the chain and update chainId
-    // In a real implementation, this would show a confirmation dialog
-    if (chainParams?.chainId) {
-      this._chainId = chainParams.chainId;
-      this.emit('chainChanged', chainParams.chainId);
+    // Send to background for actual network addition
+    const response = await this._sendMessage('ADD_CHAIN', chainParams);
+    if (response.success) {
+      if (chainParams?.chainId) {
+        this._chainId = chainParams.chainId;
+        this.emit('chainChanged', chainParams.chainId);
+      }
+      return null;
     }
-    return null;
+    throw new Error(response.error || 'Failed to add chain');
   }
 
   private async _handleRPCCall(method: string, params: any): Promise<any> {

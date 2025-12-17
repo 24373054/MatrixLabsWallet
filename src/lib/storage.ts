@@ -120,6 +120,14 @@ export class StorageService {
 // Default networks
 export const DEFAULT_NETWORKS: Network[] = [
   {
+    id: 'hardhat',
+    name: 'Hardhat Local',
+    chainId: 31337,
+    rpcUrl: 'http://127.0.0.1:8545',
+    symbol: 'ETH',
+    explorerUrl: '',
+  },
+  {
     id: 'ethereum',
     name: 'Ethereum Mainnet',
     chainId: 1,
@@ -174,6 +182,14 @@ export const DEFAULT_NETWORKS: Network[] = [
     chainId: 8453,
     symbol: 'ETH',
     explorerUrl: 'https://basescan.org',
+  },
+  {
+    id: 'base-sepolia',
+    name: 'Base Sepolia',
+    rpcUrl: 'https://sepolia.base.org',
+    chainId: 84532,
+    symbol: 'ETH',
+    explorerUrl: 'https://sepolia.basescan.org',
   },
   {
     id: 'avalanche',

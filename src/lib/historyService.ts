@@ -3,6 +3,8 @@
  * 交易历史记录服务
  */
 
+import { ethers } from 'ethers';
+
 export enum TransactionType {
   SEND = 'send',
   RECEIVE = 'receive',
@@ -146,13 +148,22 @@ export class HistoryService {
     const index = history.findIndex(r => r.hash === hash);
     
     if (index >= 0) {
+      console.log('[HistoryService] Updating transaction:', hash);
+      console.log('[HistoryService] Current data:', history[index]);
+      console.log('[HistoryService] Updates:', updates);
+      
       history[index] = {
         ...history[index],
         status,
         ...updates,
       };
+      
+      console.log('[HistoryService] Updated data:', history[index]);
+      
       await chrome.storage.local.set({ [this.STORAGE_KEY]: history });
       console.log('[HistoryService] Transaction status updated:', hash, status);
+    } else {
+      console.warn('[HistoryService] Transaction not found:', hash);
     }
   }
 
@@ -230,6 +241,7 @@ export class HistoryService {
           status: receipt.status,
           blockNumber: receipt.blockNumber,
           gasUsed: receipt.gasUsed?.toString(),
+          logs: receipt.logs?.length,
         });
 
         const updates: Partial<TransactionRecord> = {
@@ -250,6 +262,83 @@ export class HistoryService {
           console.warn('[HistoryService] Failed to calculate fee:', feeError);
         }
 
+        // 解析事件日志获取代币转账信息
+        if (receipt.logs && receipt.logs.length > 0) {
+          try {
+            const tokenTransfers = await this.parseTokenTransfers(receipt.logs, provider);
+            console.log('[HistoryService] Token transfers found:', tokenTransfers.length);
+            
+            if (tokenTransfers.length > 0) {
+              // 获取交易发起者地址
+              const tx = await provider.getTransaction(hash);
+              const userAddress = tx?.from?.toLowerCase();
+              
+              // 分离发送和接收的代币
+              const sentTokens = tokenTransfers.filter(t => t.from.toLowerCase() === userAddress);
+              const receivedTokens = tokenTransfers.filter(t => t.to.toLowerCase() === userAddress);
+              
+              console.log('[HistoryService] User address:', userAddress);
+              console.log('[HistoryService] Sent tokens:', sentTokens.length, sentTokens);
+              console.log('[HistoryService] Received tokens:', receivedTokens.length, receivedTokens);
+              
+              // 使用第一个代币转账作为主要信息
+              const transfer = tokenTransfers[0];
+              updates.tokenSymbol = transfer.symbol;
+              updates.tokenAmount = transfer.amount;
+              updates.tokenAddress = transfer.address;
+              updates.type = TransactionType.SWAP;
+              
+              // 为 swap 交易添加专用字段供 UI 显示
+              if (sentTokens.length > 0 && receivedTokens.length > 0) {
+                // 标准的 swap：用户发送一种代币，接收另一种代币
+                updates.swapFromToken = sentTokens[0].symbol;
+                updates.swapFromAmount = sentTokens[0].amount;
+                updates.swapToToken = receivedTokens[0].symbol;
+                updates.swapToAmount = receivedTokens[0].amount;
+              } else if (receivedTokens.length > 0) {
+                // 只接收代币（可能是购买）
+                updates.swapFromToken = 'USDT'; // 假设用 USDT 购买
+                updates.swapFromAmount = receivedTokens[0].amount;
+                updates.swapToToken = receivedTokens[0].symbol;
+                updates.swapToAmount = receivedTokens[0].amount;
+              } else if (sentTokens.length > 0) {
+                // 只发送代币（可能是出售）
+                updates.swapFromToken = sentTokens[0].symbol;
+                updates.swapFromAmount = sentTokens[0].amount;
+                updates.swapToToken = 'USDT'; // 假设换成 USDT
+                updates.swapToAmount = sentTokens[0].amount;
+              } else {
+                // 兜底：使用前两个转账
+                if (tokenTransfers.length >= 2) {
+                  updates.swapFromToken = tokenTransfers[0].symbol;
+                  updates.swapFromAmount = tokenTransfers[0].amount;
+                  updates.swapToToken = tokenTransfers[1].symbol;
+                  updates.swapToAmount = tokenTransfers[1].amount;
+                } else {
+                  updates.swapFromToken = transfer.symbol;
+                  updates.swapFromAmount = transfer.amount;
+                  updates.swapToToken = transfer.symbol;
+                  updates.swapToAmount = transfer.amount;
+                }
+              }
+              
+              console.log('[HistoryService] Token transfer detected:', transfer);
+              console.log('[HistoryService] Swap fields:', {
+                swapFromToken: updates.swapFromToken,
+                swapFromAmount: updates.swapFromAmount,
+                swapToToken: updates.swapToToken,
+                swapToAmount: updates.swapToAmount,
+              });
+            } else {
+              console.log('[HistoryService] No token transfers found in logs');
+            }
+          } catch (parseError) {
+            console.error('[HistoryService] Failed to parse token transfers:', parseError);
+          }
+        } else {
+          console.log('[HistoryService] No logs in receipt');
+        }
+
         await this.updateTransactionStatus(hash, updates.status!, updates);
         console.log('[HistoryService] Transaction updated:', hash, updates.status);
       } else {
@@ -258,5 +347,80 @@ export class HistoryService {
     } catch (error) {
       console.error('[HistoryService] Failed to fetch transaction:', error);
     }
+  }
+
+  /**
+   * 解析代币转账事件
+   */
+  private static async parseTokenTransfers(logs: any[], provider: any): Promise<Array<{
+    address: string;
+    symbol: string;
+    amount: string;
+    decimals: number;
+    from: string;
+    to: string;
+  }>> {
+    const transfers: Array<{
+      address: string;
+      symbol: string;
+      amount: string;
+      decimals: number;
+      from: string;
+      to: string;
+    }> = [];
+
+    // ERC20 Transfer 事件签名
+    const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+    console.log('[HistoryService] Parsing', logs.length, 'logs for token transfers');
+
+    for (const log of logs) {
+      if (log.topics && log.topics[0] === TRANSFER_TOPIC) {
+        console.log('[HistoryService] Found Transfer event in log:', log.address);
+        try {
+          const tokenAddress = log.address;
+          const value = BigInt(log.data);
+          
+          // 解析 from 和 to 地址（topics[1] 是 from，topics[2] 是 to）
+          const from = log.topics[1] ? '0x' + log.topics[1].slice(26) : '';
+          const to = log.topics[2] ? '0x' + log.topics[2].slice(26) : '';
+          
+          console.log('[HistoryService] Token address:', tokenAddress, 'Value:', value.toString());
+          console.log('[HistoryService] Transfer from:', from, 'to:', to);
+
+          // 获取代币信息
+          const tokenContract = new ethers.Contract(
+            tokenAddress,
+            [
+              'function symbol() view returns (string)',
+              'function decimals() view returns (uint8)',
+            ],
+            provider
+          );
+
+          const [symbol, decimals] = await Promise.all([
+            tokenContract.symbol().catch(() => 'Unknown'),
+            tokenContract.decimals().catch(() => 18),
+          ]);
+
+          const amount = ethers.formatUnits(value, decimals);
+
+          transfers.push({
+            address: tokenAddress,
+            symbol,
+            amount,
+            decimals,
+            from,
+            to,
+          });
+
+          console.log('[HistoryService] Parsed transfer:', { symbol, amount, tokenAddress, from, to });
+        } catch (error) {
+          console.warn('[HistoryService] Failed to parse log:', error);
+        }
+      }
+    }
+
+    return transfers;
   }
 }

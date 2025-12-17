@@ -13,17 +13,28 @@ if (typeof chrome === 'undefined') {
 }
 
 // Handle extension installation
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
     console.log('MatrixLabs Wallet installed');
-    // Initialize default storage
+    // Initialize default storage with default networks
+    const { DEFAULT_NETWORKS } = await import('../lib/storage');
     chrome.storage.local.set({
       accounts: [],
-      networks: [],
+      networks: DEFAULT_NETWORKS,
+      currentNetwork: DEFAULT_NETWORKS[0].id, // Set Hardhat as default
       settings: {}
     });
   } else if (details.reason === 'update') {
     console.log('MatrixLabs Wallet updated');
+    // On update, ensure networks are populated
+    const result = await chrome.storage.local.get(['networks']);
+    if (!result.networks || result.networks.length === 0) {
+      const { DEFAULT_NETWORKS } = await import('../lib/storage');
+      chrome.storage.local.set({
+        networks: DEFAULT_NETWORKS,
+        currentNetwork: DEFAULT_NETWORKS[0].id,
+      });
+    }
   }
 });
 
@@ -71,6 +82,14 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
     case 'RPC_CALL':
       handleRPCCall(request.data, sendResponse);
+      return true;
+
+    case 'SWITCH_CHAIN':
+      handleSwitchChain(request.data, sendResponse);
+      return true;
+
+    case 'ADD_CHAIN':
+      handleAddChain(request.data, sendResponse);
       return true;
 
     default:
@@ -354,9 +373,19 @@ async function handleTransactionApproved(sendResponse: (response: any) => void) 
 
     // Connect wallet to provider
     // Convert chainId from hex string to number if needed
-    const chainId = typeof transaction.chainId === 'string' 
-      ? parseInt(transaction.chainId, 16) 
-      : transaction.chainId;
+    let chainId: number;
+    if (transaction.chainId) {
+      chainId = typeof transaction.chainId === 'string' 
+        ? parseInt(transaction.chainId, 16) 
+        : transaction.chainId;
+    } else {
+      // Fallback: get current network from session
+      const sessionNetwork = await chrome.storage.session?.get(['currentNetwork']);
+      chainId = sessionNetwork?.currentNetwork?.chainId || 31337; // Default to Hardhat
+      console.log('[Background] No chainId in transaction, using current network:', chainId);
+    }
+    
+    console.log('[Background] Using chainId:', chainId);
     const provider = await RPCService.getProvider(chainId);
     const connectedWallet = wallet.connect(provider);
 
@@ -370,19 +399,55 @@ async function handleTransactionApproved(sendResponse: (response: any) => void) 
     const networkResult = await chrome.storage.local.get(['networks']);
     const networks = networkResult.networks || [];
     const network = networks.find((n: any) => n.chainId === chainId);
+    console.log('[Background] Network found:', network?.name || 'Unknown', 'for chainId:', chainId);
+
+    // Parse transaction data to extract token information
+    let tokenInfo: any = {};
+    if (transaction.data && transaction.data !== '0x') {
+      try {
+        // Try to decode ERC20 transfer or contract call
+        const data = transaction.data;
+        // Check if it's a token transfer (first 4 bytes = function selector)
+        if (data.length >= 10) {
+          const selector = data.slice(0, 10);
+          // ERC20 transfer: 0xa9059cbb
+          // ERC20 approve: 0x095ea7b3
+          // Custom contract calls will have different selectors
+          
+          // For now, use the provided token info if available
+          if (transaction.tokenSymbol) {
+            tokenInfo = {
+              tokenSymbol: transaction.tokenSymbol,
+              tokenAmount: transaction.tokenAmount,
+              tokenAddress: transaction.tokenAddress,
+            };
+          }
+        }
+      } catch (error) {
+        console.error('[Background] Failed to parse transaction data:', error);
+      }
+    }
+
+    // Determine transaction type
+    let txType = TransactionType.SEND;
+    if (tokenInfo.tokenSymbol) {
+      txType = TransactionType.CONTRACT;
+    } else if (transaction.value && transaction.value !== '0') {
+      txType = TransactionType.SEND;
+    } else if (transaction.data && transaction.data !== '0x') {
+      txType = TransactionType.CONTRACT;
+    }
 
     // Save transaction to history
     const historyRecord = HistoryService.createRecord({
       hash: tx.hash,
-      type: TransactionType.SEND,
+      type: txType,
       chainId: chainId,
-      chainName: network?.name || 'Unknown',
+      chainName: network?.name || `Chain ${chainId}`,
       from: currentAccount.address,
-      to: transaction.to,
+      to: transaction.to || '',
       value: transaction.value || '0',
-      tokenSymbol: transaction.tokenSymbol,
-      tokenAmount: transaction.tokenAmount,
-      tokenAddress: transaction.tokenAddress,
+      ...tokenInfo,
     });
     await HistoryService.saveTransaction(historyRecord);
 
@@ -653,6 +718,12 @@ async function handleRPCCall(data: any, sendResponse: (response: any) => void) {
       
       case 'eth_getTransactionReceipt':
         result = await RPCService.getTransactionReceipt(params[0]);
+        console.log('[Background] Transaction receipt:', result);
+        break;
+      
+      case 'eth_getTransactionByHash':
+        const tx = await RPCService.getTransaction(params[0]);
+        result = tx;
         break;
       
       case 'eth_getCode':
@@ -674,6 +745,100 @@ async function handleRPCCall(data: any, sendResponse: (response: any) => void) {
   } catch (error: any) {
     console.error('[Background] RPC call failed:', error);
     sendResponse({ success: false, error: error.message || 'RPC call failed' });
+  }
+}
+
+async function handleSwitchChain(data: any, sendResponse: (response: any) => void) {
+  console.log('[Background] handleSwitchChain called:', data);
+  
+  try {
+    const { chainId } = data;
+    
+    // Get networks from storage
+    const result = await chrome.storage.local.get(['networks']);
+    const networks = result.networks || [];
+    
+    // Convert chainId to decimal for comparison
+    const chainIdDecimal = parseInt(chainId, 16);
+    
+    // Find network
+    const network = networks.find((n: any) => n.chainId === chainIdDecimal);
+    
+    if (!network) {
+      sendResponse({ 
+        success: false, 
+        error: 'Network not found. Please add the network first.',
+        code: 4902 
+      });
+      return;
+    }
+    
+    // Update current network in both local and session storage
+    await chrome.storage.local.set({ currentNetwork: network.id });
+    await chrome.storage.session?.set({ currentNetwork: network });
+    
+    // Clear RPC provider cache to force new provider creation
+    RPCService.clearProviders();
+    
+    console.log('[Background] Network switched to:', network.name, 'chainId:', chainIdDecimal);
+    sendResponse({ success: true });
+  } catch (error: any) {
+    console.error('[Background] Failed to switch chain:', error);
+    sendResponse({ success: false, error: error.message || 'Failed to switch chain' });
+  }
+}
+
+async function handleAddChain(data: any, sendResponse: (response: any) => void) {
+  console.log('[Background] handleAddChain called:', data);
+  
+  try {
+    const { chainId, chainName, nativeCurrency, rpcUrls, blockExplorerUrls } = data;
+    
+    // Convert chainId to decimal
+    const chainIdDecimal = parseInt(chainId, 16);
+    
+    // Get existing networks
+    const result = await chrome.storage.local.get(['networks']);
+    const networks = result.networks || [];
+    
+    // Check if network already exists
+    const existingNetwork = networks.find((n: any) => n.chainId === chainIdDecimal);
+    
+    if (existingNetwork) {
+      // Network already exists, just switch to it
+      await chrome.storage.local.set({ currentNetwork: existingNetwork.id });
+      await chrome.storage.session?.set({ currentNetwork: existingNetwork });
+      RPCService.clearProviders();
+      console.log('[Background] Switched to existing network:', existingNetwork.name);
+      sendResponse({ success: true });
+      return;
+    }
+    
+    // Add new network
+    const newNetwork = {
+      id: `custom-${Date.now()}`,
+      name: chainName,
+      chainId: chainIdDecimal,
+      rpcUrl: rpcUrls[0],
+      symbol: nativeCurrency.symbol,
+      explorerUrl: blockExplorerUrls?.[0] || '',
+      isCustom: true
+    };
+    
+    networks.push(newNetwork);
+    await chrome.storage.local.set({ networks, currentNetwork: newNetwork.id });
+    
+    // Switch to new network
+    await chrome.storage.session?.set({ currentNetwork: newNetwork });
+    
+    // Clear provider cache
+    RPCService.clearProviders();
+    
+    console.log('[Background] Added and switched to new network:', newNetwork.name);
+    sendResponse({ success: true });
+  } catch (error: any) {
+    console.error('[Background] Failed to add chain:', error);
+    sendResponse({ success: false, error: error.message || 'Failed to add chain' });
   }
 }
 
